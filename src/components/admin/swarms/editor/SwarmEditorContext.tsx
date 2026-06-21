@@ -7,6 +7,15 @@ import type { ControlNodeKind } from "./nodes/registry"
 /** Live run state for a canvas node during Test Swarm SSE streaming. */
 export type SwarmNodeRunState = "idle" | "running" | "done" | "skipped" | "waiting"
 
+/** Visual fan-out state for scalable agent nodes during a test run. */
+export type ScaleVisualPhase = "idle" | "expanding" | "expanded" | "collapsing"
+
+export type ScaleVisualState = {
+  count: number
+  phase: ScaleVisualPhase
+  shardStates: SwarmNodeRunState[]
+}
+
 /** Imperative canvas API for node config panels. */
 export type SwarmEditorNodeApi = {
   getControlNodeKind: (nodeId: string) => ControlNodeKind | null
@@ -40,6 +49,17 @@ export type SwarmEditorContextValue = {
   nodeRunStates: Record<string, SwarmNodeRunState>
   setNodeRunState: (nodeId: string, state: SwarmNodeRunState) => void
   resetNodeRunStates: () => void
+  /** Fan-out animation state for scalable agent nodes. */
+  scaleVisuals: Record<string, ScaleVisualState>
+  setScaleVisual: (
+    nodeId: string,
+    state:
+      | ScaleVisualState
+      | null
+      | ((prev: ScaleVisualState | undefined) => ScaleVisualState | null),
+  ) => void
+  setScaleShardState: (nodeId: string, shardIndex: number, state: SwarmNodeRunState) => void
+  resetScaleVisuals: () => void
 }
 
 const SwarmEditorContext = createContext<SwarmEditorContextValue | null>(null)

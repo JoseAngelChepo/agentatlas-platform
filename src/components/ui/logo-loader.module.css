@@ -93,7 +93,54 @@
   .tileFrom0,
   .tileFrom1,
   .tileFrom2,
-  .tileFrom3 {
+  .tileFrom3,
+  .ringArc,
+  .innerDot0,
+  .innerDot1,
+  .innerDot2 {
     animation: none;
+  }
+}
+
+.ringArc {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logoRingSpin 1.1s linear infinite;
+}
+
+.innerDot0,
+.innerDot1,
+.innerDot2 {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.innerDot0 {
+  animation: logoDotPulse 1.05s ease-in-out infinite;
+}
+
+.innerDot1 {
+  animation: logoDotPulse 1.05s ease-in-out infinite 0.18s;
+}
+
+.innerDot2 {
+  animation: logoDotPulse 1.05s ease-in-out infinite 0.36s;
+}
+
+@keyframes logoRingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes logoDotPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
   }
 }

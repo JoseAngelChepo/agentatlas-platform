@@ -51,7 +51,9 @@ import type { IfElseNodeData } from "./nodes/ifelse/data"
 import { WHILE_FLOW_TYPE } from "./nodes/while/definition"
 import type { WhileNodeData } from "./nodes/while/data"
 import { SCRAPER_FLOW_TYPE } from "./nodes/scraper/definition"
+import { RESEARCH_PAPERS_FLOW_TYPE } from "./nodes/researchPapers/definition"
 import type { ScraperNodeData } from "./nodes/scraper/data"
+import type { ResearchPapersNodeData } from "./nodes/researchPapers/data"
 import { SWARM_FLOW_TYPE } from "./nodes/swarm/definition"
 import { buildSwarmNodeData, type SwarmNodeData } from "./nodes/swarm/data"
 import { USER_APPROVAL_FLOW_TYPE } from "./nodes/userApproval/definition"
@@ -314,6 +316,15 @@ function serializeGraphNodes(nodes: EditorNode[]): SwarmCanvasSnapshot["nodes"] 
       serialized.push({
         id: node.id,
         kind: "scraper",
+        position: { x: node.position.x, y: node.position.y },
+        data: node.data as unknown as Record<string, unknown>,
+      })
+      continue
+    }
+    if (isControlFlowNode(node) && node.type === RESEARCH_PAPERS_FLOW_TYPE) {
+      serialized.push({
+        id: node.id,
+        kind: "research_papers",
         position: { x: node.position.x, y: node.position.y },
         data: node.data as unknown as Record<string, unknown>,
       })
@@ -667,6 +678,7 @@ function SwarmEditorCanvasInner(
         sourceType === IF_ELSE_FLOW_TYPE ||
         sourceType === WHILE_FLOW_TYPE ||
         sourceType === SCRAPER_FLOW_TYPE ||
+        sourceType === RESEARCH_PAPERS_FLOW_TYPE ||
         sourceType === SWARM_FLOW_TYPE ||
         sourceType === USER_APPROVAL_FLOW_TYPE
       if (isBranchSource && !params.sourceHandle?.trim()) {
@@ -732,6 +744,8 @@ function SwarmEditorCanvasInner(
             ? "while"
           : node.type === SCRAPER_FLOW_TYPE
             ? "scraper"
+            : node.type === RESEARCH_PAPERS_FLOW_TYPE
+              ? "research_papers"
             : node.type === SWARM_FLOW_TYPE
               ? "swarm"
               : node.type === USER_APPROVAL_FLOW_TYPE
@@ -763,6 +777,19 @@ function SwarmEditorCanvasInner(
           type: SCRAPER_FLOW_TYPE,
           position: { x: node.position.x, y: node.position.y },
           data: (node.data ?? { urlSource: "runInput", urlPath: "website" }) as ScraperNodeData,
+        })
+        continue
+      }
+      if (kind === "research_papers" || node.type === RESEARCH_PAPERS_FLOW_TYPE) {
+        flowNodes.push({
+          id: node.id ?? `research_papers-${Date.now()}`,
+          type: RESEARCH_PAPERS_FLOW_TYPE,
+          position: { x: node.position.x, y: node.position.y },
+          data: (node.data ?? {
+            querySource: "runInput",
+            queryPath: "query",
+            limit: 10,
+          }) as ResearchPapersNodeData,
         })
         continue
       }
@@ -802,6 +829,17 @@ function SwarmEditorCanvasInner(
           workerId: node.workerId,
           label:
             typeof node.data?.label === "string" ? (node.data.label as string) : undefined,
+          scalable: node.data?.scalable === true,
+          outputArrayKey:
+            typeof node.data?.outputArrayKey === "string"
+              ? (node.data.outputArrayKey as string)
+              : undefined,
+          inputArrayExpression:
+            typeof node.data?.inputArrayExpression === "string"
+              ? (node.data.inputArrayExpression as string)
+              : typeof node.data?.inputArrayPath === "string"
+                ? (node.data.inputArrayPath as string)
+                : undefined,
           tag: null,
         },
       })
@@ -1133,8 +1171,8 @@ function SwarmEditorCanvasInner(
           --xy-minimap-mask-background-color: rgba(10, 10, 10, 0.06);
           --xy-minimap-node-color: var(--app-text-muted);
         }
-        .canvas-wrap :global(.react-flow__pane.selection) {
-          cursor: default;
+        .canvas-wrap :global(.react-flow__node) {
+          overflow: visible;
         }
       `}</style>
       <style jsx>{`

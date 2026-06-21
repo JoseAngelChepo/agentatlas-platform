@@ -72,9 +72,21 @@ export function upstreamRefForGraphNode(
 export function serializedAgentNodeData(data: {
   ref?: string
   label?: string
+  scalable?: boolean
+  /** Wrapper key for scalable output array (defaults to `outputs`). */
+  outputArrayKey?: string
+  inputArrayExpression?: string
+  inputArrayPath?: string
 }): Record<string, unknown> {
   const payload: Record<string, unknown> = {}
   if (data.ref) payload.ref = data.ref
   if (data.label) payload.label = data.label
+  if (data.scalable) payload.scalable = true
+  if (data.outputArrayKey?.trim()) {
+    payload.outputArrayKey = data.outputArrayKey.trim()
+  }
+  if (data.inputArrayExpression?.trim()) {
+    payload.inputArrayExpression = data.inputArrayExpression.trim()
+  }
   return payload
 }

@@ -108,7 +108,7 @@ export const landingContent = {
     highlights: [
       "Visual graph editor with agents, if/else, while loops, scrapers, and sub-swarms",
       "Streaming test runs with worker logs, token usage, and approval checkpoints",
-      "Tool registry: webpage scrape, run_swarm, and connected platform integrations",
+      "Tool registry: Firecrawl scrape/search/research, run_swarm, and connected platform integrations",
     ],
   },
   howItWorks: {

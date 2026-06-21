@@ -19,6 +19,7 @@ Palette entries come from `CONTROL_NODE_DEFINITIONS` automatically.
 | If / else | `ifelse` | `ifelse` | target; sources `case-<id>`, `else` |
 | **While** | `while` | `while` | target; sources `loop`, `done` |
 | Web scrape | `scraper` | `scraper` | target; sources `success`, `failed` |
+| Research papers | `research_papers` | `research_papers` | target; sources `success`, `failed` |
 | Sub-swarm | `swarm` | `swarm` | target; sources `success`, `failed` |
 | User approval | `user_approval` | `user_approval` | target; sources `approve`, `reject` |
 | End | `end` | `end` | target only |

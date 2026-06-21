@@ -32,7 +32,7 @@ import {
   validateBranchEdgeHandles,
   validateIfElseCaseWiring,
 } from "@/lib/swarm-graph-api"
-import { SwarmEditorProvider, type SwarmNodeRunState } from "./SwarmEditorContext"
+import { SwarmEditorProvider, type SwarmNodeRunState, type ScaleVisualState } from "./SwarmEditorContext"
 import SwarmEditorSidebar from "./SwarmEditorSidebar"
 import SwarmEditorTitle from "./SwarmEditorTitle"
 import SwarmTriggersField from "../SwarmTriggersField"
@@ -147,6 +147,7 @@ export default function SwarmEditor({ swarmId, apiMode = "admin" }: Props) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [canvasSnapshot, setCanvasSnapshot] = useState<SwarmCanvasSnapshot | null>(null)
   const [nodeRunStates, setNodeRunStates] = useState<Record<string, SwarmNodeRunState>>({})
+  const [scaleVisuals, setScaleVisuals] = useState<Record<string, ScaleVisualState>>({})
   const [pickerSwarms, setPickerSwarms] = useState<ReferencedSwarmSummary[]>([])
 
   const setNodeRunState = useCallback((nodeId: string, state: SwarmNodeRunState) => {
@@ -155,6 +156,45 @@ export default function SwarmEditor({ swarmId, apiMode = "admin" }: Props) {
 
   const resetNodeRunStates = useCallback(() => {
     setNodeRunStates({})
+  }, [])
+
+  const setScaleVisual = useCallback(
+    (
+      nodeId: string,
+      state:
+        | ScaleVisualState
+        | null
+        | ((prev: ScaleVisualState | undefined) => ScaleVisualState | null),
+    ) => {
+      setScaleVisuals((prev) => {
+        const resolved = typeof state === "function" ? state(prev[nodeId]) : state
+        if (resolved == null) {
+          if (!(nodeId in prev)) return prev
+          const next = { ...prev }
+          delete next[nodeId]
+          return next
+        }
+        return { ...prev, [nodeId]: resolved }
+      })
+    },
+    [],
+  )
+
+  const setScaleShardState = useCallback(
+    (nodeId: string, shardIndex: number, state: SwarmNodeRunState) => {
+      setScaleVisuals((prev) => {
+        const current = prev[nodeId]
+        if (!current) return prev
+        const shardStates = [...current.shardStates]
+        shardStates[shardIndex] = state
+        return { ...prev, [nodeId]: { ...current, shardStates } }
+      })
+    },
+    [],
+  )
+
+  const resetScaleVisuals = useCallback(() => {
+    setScaleVisuals({})
   }, [])
 
   const editorRef = useRef<SwarmEditorHandle | null>(null)
@@ -703,6 +743,10 @@ export default function SwarmEditor({ swarmId, apiMode = "admin" }: Props) {
         nodeRunStates,
         setNodeRunState,
         resetNodeRunStates,
+        scaleVisuals,
+        setScaleVisual,
+        setScaleShardState,
+        resetScaleVisuals,
       }}
     >
       <div className="editor">
@@ -785,6 +829,7 @@ export default function SwarmEditor({ swarmId, apiMode = "admin" }: Props) {
             <SwarmWorkerPanel
               key={openNodeId}
               canvasNodeId={openNodeId}
+              nodeApi={nodeApi}
               worker={selectedWorker}
               graph={graphForConfig}
               workerById={workerById}
@@ -821,6 +866,9 @@ export default function SwarmEditor({ swarmId, apiMode = "admin" }: Props) {
             swarmNameById={swarmNameById}
             setNodeRunState={setNodeRunState}
             resetNodeRunStates={resetNodeRunStates}
+            setScaleVisual={setScaleVisual}
+            setScaleShardState={setScaleShardState}
+            resetScaleVisuals={resetScaleVisuals}
             agentConfigOpen={Boolean(selectedWorker && openNodeId)}
           />
         </div>

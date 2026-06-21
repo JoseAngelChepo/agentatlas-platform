@@ -3,6 +3,7 @@
 import type { MouseEvent, ReactNode } from "react"
 import { TbSettings, TbTrash } from "react-icons/tb"
 import { useSwarmEditor } from "../../SwarmEditorContext"
+import { CANVAS_NODE_CIRCLE_RADIUS } from "./canvasNodeShapeStyles"
 
 type Props = {
   id: string
@@ -10,6 +11,8 @@ type Props = {
   children: ReactNode
   onConfigure?: () => void
   configureAriaLabel?: string
+  /** Skip card chrome — used when children render their own per-shard shells. */
+  bare?: boolean
 }
 
 /** Card chrome shared by every canvas node (top actions, delete, optional configure). */
@@ -19,6 +22,7 @@ export default function NodeWrapper({
   children,
   onConfigure,
   configureAriaLabel,
+  bare = false,
 }: Props) {
   const { onDeleteNode, isSaving } = useSwarmEditor()
 
@@ -37,7 +41,7 @@ export default function NodeWrapper({
   const actionsDisabled = isSaving
 
   return (
-    <div className="node-card-container">
+    <div className={`node-card-container${bare ? " node-card-container--bare" : ""}`}>
       <div className="node-actions nodrag">
         {onConfigure ? (
           <button
@@ -64,10 +68,16 @@ export default function NodeWrapper({
 
       <style jsx>{`
         .node-card-container {
+          display: inline-flex;
           padding: 0.25rem;
           background: #c5bdcd;
-          border-radius: var(--app-radius-lg);
+          border-radius: ${CANVAS_NODE_CIRCLE_RADIUS};
           position: relative;
+        }
+        .node-card-container--bare {
+          padding: 0;
+          background: transparent;
+          overflow: visible;
         }
         .node-actions {
           position: absolute;

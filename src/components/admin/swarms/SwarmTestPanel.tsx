@@ -54,7 +54,7 @@ import {
 import { toast } from "@/lib/toast"
 import SwarmRunApprovalGate from "./SwarmRunApprovalGate"
 import WorkerLogCard from "./WorkerLogCard"
-import type { SwarmNodeRunState } from "./editor/SwarmEditorContext"
+import type { SwarmNodeRunState, ScaleVisualState } from "./editor/SwarmEditorContext"
 
 type Props = {
   swarmId: string
@@ -72,6 +72,15 @@ type Props = {
   swarmNameById?: Record<string, string>
   setNodeRunState?: (nodeId: string, state: SwarmNodeRunState) => void
   resetNodeRunStates?: () => void
+  setScaleVisual?: (
+    nodeId: string,
+    state:
+      | ScaleVisualState
+      | null
+      | ((prev: ScaleVisualState | undefined) => ScaleVisualState | null),
+  ) => void
+  setScaleShardState?: (nodeId: string, shardIndex: number, state: SwarmNodeRunState) => void
+  resetScaleVisuals?: () => void
   /** When true, the panel collapses to give room to Configure agent. */
   agentConfigOpen?: boolean
 }
@@ -130,6 +139,19 @@ function formatUserApprovalLogBody(output: Record<string, unknown>): string {
   }
   if (typeof output.message === "string" && output.message.trim()) {
     lines.push(`message: ${output.message}`)
+  }
+  return lines.length > 0 ? lines.join("\n") : formatJson(output)
+}
+
+function formatResearchPapersLogBody(output: Record<string, unknown>): string {
+  const lines: string[] = []
+  if (typeof output.branchHandle === "string") lines.push(`branch: ${output.branchHandle}`)
+  if (typeof output.status === "string") lines.push(`status: ${output.status}`)
+  if (typeof output.query === "string") lines.push(`query: ${output.query}`)
+  if (typeof output.paperCount === "number") lines.push(`paperCount: ${output.paperCount}`)
+  if (typeof output.error === "string" && output.error.trim()) lines.push(`error: ${output.error}`)
+  if (Array.isArray(output.papers) && output.papers.length > 0) {
+    lines.push(`papers:\n${formatJson(output.papers.slice(0, 5))}`)
   }
   return lines.length > 0 ? lines.join("\n") : formatJson(output)
 }
@@ -198,6 +220,9 @@ export default function SwarmTestPanel({
   swarmNameById = {},
   setNodeRunState,
   resetNodeRunStates,
+  setScaleVisual,
+  setScaleShardState,
+  resetScaleVisuals,
   agentConfigOpen = false,
 }: Props) {
   const services = useMemo(() => createServices(ApiServices), [])
@@ -263,7 +288,8 @@ export default function SwarmTestPanel({
     liveSessionRunIdRef.current = null
     setPendingApproval(null)
     resetNodeRunStates?.()
-  }, [resetNodeRunStates])
+    resetScaleVisuals?.()
+  }, [resetNodeRunStates, resetScaleVisuals])
 
   const loadToolInvocationRuns = useCallback(
     (parentRunId: string) =>
@@ -386,6 +412,7 @@ export default function SwarmTestPanel({
         if (
           event.nodeKind === "start" ||
           event.nodeKind === "scraper" ||
+          event.nodeKind === "research_papers" ||
           event.nodeKind === "ifelse" ||
           event.nodeKind === "while" ||
           event.nodeKind === "user_approval" ||
@@ -435,6 +462,21 @@ export default function SwarmTestPanel({
               status: "done",
               latencyMs: event.latencyMs,
               streamText: formatStartLogBody(event.output),
+            }),
+          )
+        } else if (event.nodeKind === "research_papers") {
+          setSwarmLogs((prev) =>
+            upsertSwarmLog(prev, event.nodeId, {
+              kind: "research_papers",
+              name: event.nodeName,
+              step: event.step,
+              status: "done",
+              latencyMs: event.latencyMs,
+              streamText: formatResearchPapersLogBody(event.output),
+              meta:
+                typeof event.output.status === "string"
+                  ? `branch · ${String(event.output.branchHandle ?? "—")}`
+                  : undefined,
             }),
           )
         } else if (event.nodeKind === "scraper") {
@@ -606,6 +648,27 @@ export default function SwarmTestPanel({
         })
         break
       }
+      case "scale_expand":
+        setScaleVisual?.(event.nodeId, {
+          count: event.count,
+          phase: "expanded",
+          shardStates: Array.from({ length: event.count }, () => "running" as const),
+        })
+        break
+      case "scale_shard_start":
+        setScaleShardState?.(event.nodeId, event.shardIndex, "running")
+        break
+      case "scale_shard_done":
+        setScaleShardState?.(event.nodeId, event.shardIndex, "done")
+        break
+      case "scale_collapse":
+        setScaleVisual?.(event.nodeId, (current) =>
+          current
+            ? { ...current, phase: "collapsing" }
+            : { count: 1, phase: "collapsing", shardStates: ["done"] },
+        )
+        window.setTimeout(() => setScaleVisual?.(event.nodeId, null), 420)
+        break
       case "error":
         setRunMeta({ status: "failed", failureReason: event.message })
         toast.error(event.message)
@@ -613,7 +676,7 @@ export default function SwarmTestPanel({
       default:
         break
     }
-  }, [appendToolInvocationLogs, setNodeRunState])
+  }, [appendToolInvocationLogs, setNodeRunState, setScaleShardState, setScaleVisual])
 
   const onHistoryChange = useCallback(
     (value: string) => {

@@ -9,6 +9,7 @@ export const RESERVED_PROMPT_ROOTS = new Set([
   "shared",
   "upstream",
   "output",
+  "outputs",
 ])
 
 export const SCRAPER_OUTPUT_KEYS = ["content", "url", "status"] as const

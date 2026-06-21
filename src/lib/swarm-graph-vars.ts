@@ -13,24 +13,102 @@ export type PromptVariable = {
 
 const SUGGESTED_SHARED_KEYS = ["result", "summary", "intent"]
 
+/** Default upstream field when a worker uses text output (no JSON schema properties). */
+const TEXT_WORKER_OUTPUT_KEYS = ["result"]
+
 export type UpstreamPredecessor = {
   /** React Flow / graph node id — unique per canvas tile. */
   nodeId: string
   workerId: string
   /** Canvas label or worker name (display only). */
   workerName: string
-  /** @deprecated Legacy; tokens use flat field names when swarm outputs are unique. */
+  /** @deprecated Legacy; sub-swarm nodes use `upstream.swarm.*`. */
   slug: string
   outputKeys: string[]
+  /** Graph node fans out over an upstream array. */
+  scalable?: boolean
+  /** Structured output fields inside each shard object (when `scalable`). */
+  shardSchemaKeys?: string[]
 }
 
-/** Default upstream field when a worker uses text output (no JSON schema properties). */
-const TEXT_WORKER_OUTPUT_KEYS = ["result"]
+/** Output key for scalable agent nodes — array of per-shard worker outputs. */
+export const SCALABLE_AGENT_OUTPUT_KEY = "outputs"
 
-function resolveWorkerOutputKeys(upstreamWorker?: AdminAgentWorker): string[] {
+/** User-defined wrapper key for scalable agent output (defaults to {@link SCALABLE_AGENT_OUTPUT_KEY}). */
+export function readScalableOutputArrayKey(nodeData?: Record<string, unknown>): string {
+  const raw = nodeData?.outputArrayKey
+  if (typeof raw === "string") {
+    const trimmed = raw.trim()
+    if (trimmed.length > 0) return trimmed
+  }
+  return SCALABLE_AGENT_OUTPUT_KEY
+}
+
+export function isScalableNodeData(data?: Record<string, unknown>): boolean {
+  return data?.scalable === true
+}
+
+function shardSchemaKeysForWorker(worker?: AdminAgentWorker): string[] {
+  return extractSchemaPropertyKeys(worker?.outputSchema).filter(
+    (key) => key !== SCALABLE_AGENT_OUTPUT_KEY,
+  )
+}
+
+function resolveWorkerOutputKeys(
+  upstreamWorker?: AdminAgentWorker,
+  nodeData?: Record<string, unknown>,
+): string[] {
+  if (isScalableNodeData(nodeData)) {
+    return [readScalableOutputArrayKey(nodeData)]
+  }
   const fromSchema = extractSchemaPropertyKeys(upstreamWorker?.outputSchema)
   if (fromSchema.length > 0) return fromSchema
   return [...TEXT_WORKER_OUTPUT_KEYS]
+}
+
+function upstreamOutputDedupeKey(nodeId: string, key: string): string {
+  return `${nodeId}::${key}`
+}
+
+function formatUpstreamOutputLabel(upstream: UpstreamPredecessor, key: string): string {
+  if (upstream.scalable) {
+    const inner =
+      upstream.shardSchemaKeys && upstream.shardSchemaKeys.length > 0
+        ? upstream.shardSchemaKeys.join(", ")
+        : "…"
+    return `${key} · shard results[] (${inner})`
+  }
+  return key
+}
+
+/** Extra prompt tokens for scalable upstream (shard element + nested schema fields). */
+function buildScalableUpstreamPromptVariables(
+  upstream: UpstreamPredecessor,
+): PromptVariable[] {
+  if (!upstream.scalable) return []
+
+  const vars: PromptVariable[] = []
+  const seen = new Set<string>()
+  const root = upstream.outputKeys[0] ?? SCALABLE_AGENT_OUTPUT_KEY
+
+  const push = (token: string, label: string) => {
+    if (seen.has(token)) return
+    seen.add(token)
+    vars.push({
+      token,
+      label,
+      group: "upstream",
+      sourceWorkerId: upstream.workerId,
+      sourceWorkerName: upstream.workerName,
+    })
+  }
+
+  push(`{{${root}.item}}`, `Current shard object (${root})`)
+  for (const prop of upstream.shardSchemaKeys ?? []) {
+    push(`{{${root}.item.${prop}}}`, `Shard · ${prop}`)
+  }
+
+  return vars
 }
 
 export function slugifyWorkerName(name: string): string {
@@ -73,6 +151,7 @@ function graphNodeById(graph: SwarmGraph, nodeId: string): SwarmGraph["nodes"][n
 }
 
 const SUGGESTED_SCRAPER_OUTPUT_KEYS = ["content", "url", "status"]
+const SUGGESTED_RESEARCH_PAPERS_OUTPUT_KEYS = ["query", "papers", "paperCount", "status"]
 
 /** Child swarm metadata for resolving sub-swarm node outputs in the graph. */
 export type ReferencedSwarmLookup = Record<
@@ -111,6 +190,8 @@ function resolveWorkerPredecessorFromNode(
             ? "while"
           : node?.type === "scraper"
             ? "scraper"
+            : node?.type === "research_papers"
+              ? "research_papers"
             : node?.type === "user_approval" || node?.type === "userApproval"
               ? "user_approval"
               : node?.type === "swarm"
@@ -153,6 +234,16 @@ function resolveWorkerPredecessorFromNode(
     }
   }
 
+  if (kind === "research_papers") {
+    return {
+      nodeId: fromNodeId,
+      workerId: fromNodeId,
+      workerName: "Research papers",
+      slug: "research_papers",
+      outputKeys: [...SUGGESTED_RESEARCH_PAPERS_OUTPUT_KEYS],
+    }
+  }
+
   if (kind === "ifelse" || kind === "while" || kind === "user_approval" || kind === "end") {
     const incoming = graph.edges.filter((e) => e.to === fromNodeId)
     for (const edge of incoming) {
@@ -178,13 +269,16 @@ function resolveWorkerPredecessorFromNode(
     workerById,
     upstreamWorker?.name ?? workerId.slice(-6),
   )
-  const outputKeys = resolveWorkerOutputKeys(upstreamWorker)
+  const outputKeys = resolveWorkerOutputKeys(upstreamWorker, node?.data)
+  const scalable = isScalableNodeData(node?.data)
   return {
     nodeId: fromNodeId,
     workerId,
     workerName,
     slug: workerId,
     outputKeys,
+    scalable,
+    shardSchemaKeys: scalable ? shardSchemaKeysForWorker(upstreamWorker) : undefined,
   }
 }
 
@@ -334,6 +428,8 @@ export function buildScraperUrlContextOptions(
 }
 
 export type IfElseConditionFieldOption = {
+  /** Stable React key (unique per upstream node + field). */
+  id: string
   /** Expression field token, e.g. `summary` or `runInput.message`. */
   value: string
   label: string
@@ -357,11 +453,13 @@ export function buildIfElseConditionFieldOptions(
     referencedSwarmById,
   )) {
     for (const key of upstream.outputKeys) {
-      if (seen.has(key)) continue
-      seen.add(key)
+      const dedupe = upstreamOutputDedupeKey(upstream.nodeId, key)
+      if (seen.has(dedupe)) continue
+      seen.add(dedupe)
       options.push({
+        id: dedupe,
         value: key,
-        label: `${upstream.workerName} · ${key}`,
+        label: formatUpstreamOutputLabel(upstream, key),
         group: "upstream",
       })
     }
@@ -372,6 +470,7 @@ export function buildIfElseConditionFieldOptions(
     if (seen.has(token)) continue
     seen.add(token)
     options.push({
+      id: token,
       value: token,
       label: `Run input · ${key}`,
       group: "runInput",
@@ -416,11 +515,12 @@ export function buildIfElseCodeContextVariables(
     referencedSwarmById,
   )) {
     for (const key of upstream.outputKeys) {
-      if (seen.has(key)) continue
-      seen.add(key)
+      const dedupe = upstreamOutputDedupeKey(upstream.nodeId, key)
+      if (seen.has(dedupe)) continue
+      seen.add(dedupe)
       vars.push({
         token: key,
-        label: `${upstream.workerName} → ${key}`,
+        label: formatUpstreamOutputLabel(upstream, key),
         group: "upstream",
         sourceWorkerId: upstream.workerId,
         sourceWorkerName: upstream.workerName,
@@ -432,6 +532,8 @@ export function buildIfElseCodeContextVariables(
 }
 
 export type EndOutputFieldOption = {
+  /** Stable React key (unique per upstream node + field). */
+  id: string
   value: string
   label: string
   group: "upstream" | "runInput"
@@ -454,11 +556,13 @@ export function buildEndOutputFieldOptions(
     referencedSwarmById,
   )) {
     for (const key of upstream.outputKeys) {
-      if (seen.has(key)) continue
-      seen.add(key)
+      const dedupe = upstreamOutputDedupeKey(upstream.nodeId, key)
+      if (seen.has(dedupe)) continue
+      seen.add(dedupe)
       options.push({
+        id: dedupe,
         value: key,
-        label: `${upstream.workerName} · ${key}`,
+        label: formatUpstreamOutputLabel(upstream, key),
         group: "upstream",
       })
     }
@@ -469,6 +573,7 @@ export function buildEndOutputFieldOptions(
     if (seen.has(token)) continue
     seen.add(token)
     options.push({
+      id: token,
       value: token,
       label: `Run input · ${key}`,
       group: "runInput",
@@ -523,11 +628,12 @@ export function buildPromptVariables(
     referencedSwarmById,
   )) {
     for (const key of upstream.outputKeys) {
-      if (seenKeys.has(key)) continue
-      seenKeys.add(key)
+      const dedupe = upstreamOutputDedupeKey(upstream.nodeId, key)
+      if (seenKeys.has(dedupe)) continue
+      seenKeys.add(dedupe)
       vars.push({
         token: `{{${key}}}`,
-        label: `${upstream.workerName} → ${key}`,
+        label: formatUpstreamOutputLabel(upstream, key),
         group: "upstream",
         sourceWorkerId: upstream.workerId,
       })
@@ -553,6 +659,7 @@ export function buildUpstreamPromptVariables(
   const vars: PromptVariable[] = []
   const seenFlatKeys = new Set<string>()
   const seenExplicitTokens = new Set<string>()
+  const seenTokens = new Set<string>()
 
   if (predecessors.length > 0) {
     vars.push({
@@ -560,6 +667,13 @@ export function buildUpstreamPromptVariables(
       label: "All upstream outputs (JSON)",
       group: "upstream",
     })
+    seenTokens.add("{{upstream}}")
+  }
+
+  const pushVar = (variable: PromptVariable) => {
+    if (seenTokens.has(variable.token)) return
+    seenTokens.add(variable.token)
+    vars.push(variable)
   }
 
   for (const upstream of predecessors) {
@@ -568,7 +682,7 @@ export function buildUpstreamPromptVariables(
         const explicitToken = `{{upstream.swarm.${key}}}`
         if (!seenExplicitTokens.has(explicitToken)) {
           seenExplicitTokens.add(explicitToken)
-          vars.push({
+          pushVar({
             token: explicitToken,
             label: `${upstream.workerName} → ${key}`,
             group: "upstream",
@@ -578,15 +692,21 @@ export function buildUpstreamPromptVariables(
         }
       }
 
-      if (seenFlatKeys.has(key)) continue
-      seenFlatKeys.add(key)
-      vars.push({
-        token: `{{${key}}}`,
-        label: `${upstream.workerName} → ${key}`,
+      const flatToken = `{{${key}}}`
+      const dedupe = upstreamOutputDedupeKey(upstream.nodeId, key)
+      if (seenFlatKeys.has(dedupe)) continue
+      seenFlatKeys.add(dedupe)
+      pushVar({
+        token: flatToken,
+        label: formatUpstreamOutputLabel(upstream, key),
         group: "upstream",
         sourceWorkerId: upstream.workerId,
         sourceWorkerName: upstream.workerName,
       })
+    }
+
+    for (const nested of buildScalableUpstreamPromptVariables(upstream)) {
+      pushVar(nested)
     }
   }
 
@@ -622,5 +742,81 @@ export function buildInstructionsContextVariables(
   }
 
   vars.push(...buildUpstreamPromptVariables(targetNodeId, graph, workerById, referencedSwarmById))
+  return vars
+}
+
+/** Root field name from a scalable array expression — e.g. `papers`, `items`. */
+export function rootFieldFromScalableArrayExpression(expression: string): string | null {
+  const expr = expression.trim()
+  if (!expr || expr.startsWith("runInput.")) return null
+  const root = expr.includes(".") ? expr.split(".").pop() : expr
+  return root?.trim() || null
+}
+
+/** Per-shard tokens for scalable agents (e.g. `{{papers.item}}`). */
+export function buildScalableShardPromptVariables(
+  inputArrayExpression: string,
+  predecessors: UpstreamPredecessor[] = [],
+): PromptVariable[] {
+  const expr = inputArrayExpression.trim()
+  if (!expr) return []
+
+  const vars: PromptVariable[] = []
+
+  if (expr.startsWith("runInput.")) {
+    const field = expr.slice("runInput.".length)
+    return [
+      {
+        token: "{{runInput.item}}",
+        label: `Current · ${field} element`,
+        group: "runInput",
+      },
+      {
+        token: "{{runInput.shardIndex}}",
+        label: "Shard index (0-based)",
+        group: "runInput",
+      },
+    ]
+  }
+
+  const fieldRoot = rootFieldFromScalableArrayExpression(expr)
+  if (!fieldRoot) return []
+
+  const source = predecessors.find((row) => row.outputKeys.includes(fieldRoot))
+  const sourceLabel = fieldRoot
+
+  vars.push({
+    token: `{{${fieldRoot}.item}}`,
+    label: `${sourceLabel} · current element`,
+    group: "upstream",
+    sourceWorkerId: source?.workerId,
+    sourceWorkerName: source?.workerName,
+  })
+
+  if (source?.scalable && source.outputKeys.includes(fieldRoot)) {
+    for (const prop of source.shardSchemaKeys ?? []) {
+      vars.push({
+        token: `{{${fieldRoot}.item.${prop}}}`,
+        label: `${sourceLabel} · shard · ${prop}`,
+        group: "upstream",
+        sourceWorkerId: source?.workerId,
+        sourceWorkerName: source?.workerName,
+      })
+    }
+  }
+
+  vars.push(
+    {
+      token: "{{runInput.item}}",
+      label: "Current array element",
+      group: "runInput",
+    },
+    {
+      token: "{{runInput.shardIndex}}",
+      label: "Shard index (0-based)",
+      group: "runInput",
+    },
+  )
+
   return vars
 }

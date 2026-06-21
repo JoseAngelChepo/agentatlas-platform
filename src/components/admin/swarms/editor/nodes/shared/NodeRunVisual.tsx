@@ -25,9 +25,9 @@ export default function NodeRunVisual({ nodeId, icon, loaderSize = "default" }: 
     return (
       <span className="node-run-loader">
         <LogoLoader
-          variant="tiles"
+          variant="circles"
           tone="soft"
-          size={loaderSize === "large" ? 48 : 42}
+          size={loaderSize === "large" ? 36 : 30}
           className="node-run-logo-loader"
         />
         <style jsx>{`

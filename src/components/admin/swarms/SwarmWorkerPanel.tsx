@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { TbChevronRight, TbX } from "react-icons/tb"
 import createServices, {
   type AdminAgentWorker,
@@ -22,7 +22,8 @@ import PromptMessagesEditor, {
 } from "./PromptMessagesEditor"
 import OutputSchemaEditor from "./OutputSchemaEditor"
 import {
-  isAgentToolId,
+  agentToolsForSave,
+  mergeAgentToolsCatalog,
   parseAgentToolIds,
   type AgentToolCatalogEntry,
   type AgentToolId,
@@ -40,9 +41,15 @@ import {
 import { parseSwarmToolIds } from "@/lib/swarm-tool-utils"
 import {
   buildInstructionsContextVariables,
+  buildIfElseConditionFieldOptions,
+  buildScalableShardPromptVariables,
   buildReferencedSwarmLookup,
   extractSchemaPropertyKeys,
+  listDirectUpstreamPredecessorsForNode,
+  rootFieldFromScalableArrayExpression,
+  SCALABLE_AGENT_OUTPUT_KEY,
 } from "@/lib/swarm-graph-vars"
+import { isReservedPromptRoot } from "@/lib/swarm-output-vars"
 import {
   mergeGlobalContextVariables,
   formatAgentsAvailablesText,
@@ -56,6 +63,8 @@ import { useSwarmEditorDepartments } from "./useSwarmEditorDepartments"
 import { useSwarmEditorHiredAgents } from "./useSwarmEditorHiredAgents"
 import { useSwarmEditorTools } from "./useSwarmEditorTools"
 import { useSwarmEditor } from "./editor/SwarmEditorContext"
+import type { SwarmEditorNodeApi } from "./editor/SwarmEditorContext"
+import type { AgentNodeData } from "./editor/nodes/agent/AgentCanvasNode"
 import {
   CUSTOM_OPTION,
   buildProviderOptions,
@@ -76,6 +85,7 @@ type Props = {
   saving: boolean
   onClose: () => void
   onSave: (patch: AdminUpdateAgentWorkerPayload) => Promise<AdminAgentWorker | null>
+  nodeApi?: SwarmEditorNodeApi | null
 }
 
 /** Keeps text inputs controlled when API fields are missing. */
@@ -166,53 +176,72 @@ function buildModelParams(input: {
   return params
 }
 
-/**
- * Lazily-loaded backend setup (`GET /inference/setup`). Cached at module scope
- * so reopening different workers doesn't refetch.
- */
-let inferenceSetupCache: InferenceSetup | null | undefined
+function sortedIds<T extends string>(ids: T[]): T[] {
+  return [...ids].sort()
+}
 
-function useInferenceSetup(): {
+function isToolsConfigDirty(
+  worker: AdminAgentWorker,
+  agentTools: AgentToolId[],
+  openaiTools: OpenAiWorkerToolsConfig,
+  swarmTools: string[],
+): boolean {
+  const savedAgentTools = parseAgentToolIds(worker.agentTools)
+  const savedSwarmTools = parseSwarmToolIds(worker.swarmTools)
+
+  if (
+    JSON.stringify(sortedIds(agentTools)) !== JSON.stringify(sortedIds(savedAgentTools)) ||
+    JSON.stringify(sortedIds(swarmTools)) !== JSON.stringify(sortedIds(savedSwarmTools))
+  ) {
+    return true
+  }
+
+  const draftOpenAi = openAiToolsToPayload(openaiTools, agentTools)
+  const savedOpenAi = openAiToolsToPayload(
+    parseOpenAiWorkerTools(worker.openaiTools as Record<string, unknown> | undefined),
+    savedAgentTools,
+  )
+
+  return JSON.stringify(draftOpenAi) !== JSON.stringify(savedOpenAi)
+}
+
+/**
+ * Backend setup (`GET /inference/setup`). Refetched when the worker panel opens
+ * so new agent tools appear without a full page reload.
+ */
+function useInferenceSetup(active: boolean, refreshKey: unknown = 0): {
   providers: InferenceProviderSetup[] | null
   agentToolsCatalog: AgentToolCatalogEntry[]
   loading: boolean
 } {
-  const [setup, setSetup] = useState<InferenceSetup | null>(inferenceSetupCache ?? null)
-  const [loading, setLoading] = useState<boolean>(inferenceSetupCache === undefined)
-  const fetchedRef = useRef(false)
+  const [setup, setSetup] = useState<InferenceSetup | null>(null)
+  const [loading, setLoading] = useState(active)
 
   useEffect(() => {
-    if (inferenceSetupCache !== undefined) return
-    if (fetchedRef.current) return
-    fetchedRef.current = true
+    if (!active) return
 
+    let cancelled = false
     const services = createServices(ApiServices)
     setLoading(true)
+
     services
       .getInferenceSetup()
       .then((next) => {
-        inferenceSetupCache = next
-        setSetup(next)
+        if (!cancelled) setSetup(next)
       })
       .catch(() => {
-        inferenceSetupCache = null
-        setSetup(null)
+        if (!cancelled) setSetup(null)
       })
-      .finally(() => setLoading(false))
-  }, [])
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
-  const agentToolsCatalog = (setup?.agentTools?.catalog ?? []).flatMap((entry) =>
-    isAgentToolId(entry.id)
-      ? [
-          {
-            id: entry.id,
-            name: entry.name,
-            description: entry.description,
-            configured: entry.configured,
-          },
-        ]
-      : [],
-  )
+    return () => {
+      cancelled = true
+    }
+  }, [active, refreshKey])
+
+  const agentToolsCatalog = mergeAgentToolsCatalog(setup?.agentTools?.catalog ?? [])
 
   return {
     providers: setup?.providers ?? null,
@@ -229,6 +258,7 @@ export default function SwarmWorkerPanel({
   saving,
   onClose,
   onSave,
+  nodeApi,
 }: Props) {
   const [configTab, setConfigTab] = useState<ConfigTab>("instructions")
   const [outputFormat, setOutputFormat] = useState<OutputFormat>(() =>
@@ -257,6 +287,36 @@ export default function SwarmWorkerPanel({
   )
   const [maxRetries, setMaxRetries] = useState(() => asNumberInputString(worker.maxRetries))
   const [timeoutMs, setTimeoutMs] = useState(() => asNumberInputString(worker.timeoutMs))
+  const agentNodeData = nodeApi?.getNodeData<AgentNodeData>(canvasNodeId)
+  const [scalable, setScalable] = useState(() => Boolean(agentNodeData?.scalable))
+  const [inputArrayExpression, setInputArrayExpression] = useState(
+    () =>
+      agentNodeData?.inputArrayExpression?.trim() ||
+      agentNodeData?.inputArrayPath?.trim() ||
+      "",
+  )
+  const [outputArrayKey, setOutputArrayKey] = useState(
+    () => agentNodeData?.outputArrayKey?.trim() || SCALABLE_AGENT_OUTPUT_KEY,
+  )
+
+  useEffect(() => {
+    const data = nodeApi?.getNodeData<AgentNodeData>(canvasNodeId)
+    setScalable(Boolean(data?.scalable))
+    setInputArrayExpression(
+      data?.inputArrayExpression?.trim() || data?.inputArrayPath?.trim() || "",
+    )
+    setOutputArrayKey(data?.outputArrayKey?.trim() || SCALABLE_AGENT_OUTPUT_KEY)
+  }, [canvasNodeId, nodeApi, graph?.updatedAt])
+
+  const persistAgentNodeData = useCallback(
+    (patch: Partial<AgentNodeData>) => {
+      if (!nodeApi) return
+      const current = nodeApi.getNodeData<AgentNodeData>(canvasNodeId)
+      if (!current) return
+      nodeApi.setNodeData(canvasNodeId, { ...current, ...patch })
+    },
+    [canvasNodeId, nodeApi],
+  )
   const [openaiTools, setOpenaiTools] = useState<OpenAiWorkerToolsConfig>(() =>
     parseOpenAiWorkerTools(worker.openaiTools as Record<string, unknown> | undefined),
   )
@@ -277,15 +337,77 @@ export default function SwarmWorkerPanel({
     [pickerSwarms],
   )
 
-  const contextVariables = useMemo(
+  const contextVariables = useMemo(() => {
+    const base = buildInstructionsContextVariables(
+      canvasNodeId,
+      graph,
+      workerById,
+      referencedSwarmById,
+    )
+    if (!scalable) return base
+    const predecessors = listDirectUpstreamPredecessorsForNode(
+      canvasNodeId,
+      graph,
+      workerById,
+      referencedSwarmById,
+    )
+    return [
+      ...base,
+      ...buildScalableShardPromptVariables(inputArrayExpression, predecessors),
+    ]
+  }, [
+    canvasNodeId,
+    graph,
+    workerById,
+    referencedSwarmById,
+    scalable,
+    inputArrayExpression,
+  ])
+
+  const arrayContextOptions = useMemo(
     () =>
-      buildInstructionsContextVariables(
+      buildIfElseConditionFieldOptions(
         canvasNodeId,
         graph,
         workerById,
         referencedSwarmById,
       ),
     [canvasNodeId, graph, workerById, referencedSwarmById],
+  )
+
+  const upstreamArrayOptions = useMemo(
+    () => arrayContextOptions.filter((option) => option.group === "upstream"),
+    [arrayContextOptions],
+  )
+
+  const runInputArrayOptions = useMemo(
+    () => arrayContextOptions.filter((option) => option.group === "runInput"),
+    [arrayContextOptions],
+  )
+
+  const scalableItemHint = useMemo(() => {
+    if (!scalable) return "{{runInput.item}}"
+    const root = rootFieldFromScalableArrayExpression(inputArrayExpression)
+    return root ? `{{${root}.item}}` : "{{runInput.item}}"
+  }, [scalable, inputArrayExpression])
+
+  const outputArrayKeyError = useMemo(() => {
+    const key = outputArrayKey.trim()
+    if (!scalable || !key) return null
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+      return "Use letters, numbers, and underscores; start with a letter or _."
+    }
+    if (isReservedPromptRoot(key) && key !== SCALABLE_AGENT_OUTPUT_KEY) {
+      return `"${key}" is reserved. Pick another name.`
+    }
+    return null
+  }, [scalable, outputArrayKey])
+
+  const arrayExpressionInList = useMemo(
+    () =>
+      !inputArrayExpression ||
+      arrayContextOptions.some((option) => option.value === inputArrayExpression),
+    [arrayContextOptions, inputArrayExpression],
   )
 
   const { departments } = useSwarmEditorDepartments()
@@ -319,14 +441,21 @@ export default function SwarmWorkerPanel({
 
   const structuredVariables = useMemo(() => {
     if (outputFormat !== "structured") return []
-    return parseSchemaKeysQuiet(outputSchemaText).map((key) => ({
+    const keys = parseSchemaKeysQuiet(outputSchemaText)
+    if (scalable) {
+      return keys.map((key) => ({
+        token: `{{${key}}}`,
+        label: `Per-shard field · ${key} (inside outputs[])`,
+      }))
+    }
+    return keys.map((key) => ({
       token: `{{${key}}}`,
       label: key,
     }))
-  }, [outputFormat, outputSchemaText])
+  }, [outputFormat, outputSchemaText, scalable])
 
   const { providers: backendProviders, agentToolsCatalog, loading: providersLoading } =
-    useInferenceSetup()
+    useInferenceSetup(true, configTab)
 
   const providerOptions = useMemo(
     () => buildProviderOptions(backendProviders),
@@ -357,6 +486,16 @@ export default function SwarmWorkerPanel({
   )
 
   const { canonicalProvider, modelSelectValue, modelOptions } = modelSelection
+
+  const savedAgentTools = useMemo(
+    () => parseAgentToolIds(worker.agentTools),
+    [worker.agentTools, worker.updatedAt],
+  )
+
+  const toolsConfigDirty = useMemo(
+    () => isToolsConfigDirty(worker, agentTools, openaiTools, swarmTools),
+    [worker, agentTools, openaiTools, swarmTools],
+  )
 
   const serverModelKey = `${readPersistedWorkerProvider(worker.model)}:${persistedModelName}:${worker.updatedAt ?? ""}`
 
@@ -450,7 +589,7 @@ export default function SwarmWorkerPanel({
       timeoutMs: parsedTimeoutMs,
       openaiTools: openAiToolsToPayload(openaiTools, agentTools),
       grokTools: grokToolsToPayload(grokTools),
-      agentTools,
+      agentTools: agentToolsForSave(agentTools, swarmTools),
       swarmTools,
     })
 
@@ -516,6 +655,135 @@ export default function SwarmWorkerPanel({
       <div className="fields">
         {configTab === "instructions" ? (
           <>
+            <section className="scale-section">
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={scalable}
+                  onChange={(e) => {
+                    const next = e.target.checked
+                    setScalable(next)
+                    persistAgentNodeData({ scalable: next })
+                  }}
+                />
+                <span>Scalable agent (map over array)</span>
+              </label>
+              <p className="hint">
+                Runs this agent once per array element in parallel. Downstream nodes receive{" "}
+                <code>{`${outputArrayKey.trim() || SCALABLE_AGENT_OUTPUT_KEY}: [ {…}, … ]`}</code>{" "}
+                — one object per shard matching your output schema. Use{" "}
+                <code>{scalableItemHint}</code> in instructions for the current element.
+              </p>
+              {scalable ? (
+                <>
+                  <label className="field">
+                    <span>Output array name</span>
+                    <input
+                      className="field-control field-control--mono"
+                      type="text"
+                      placeholder={SCALABLE_AGENT_OUTPUT_KEY}
+                      value={outputArrayKey}
+                      onChange={(e) => {
+                        const next = e.target.value
+                        setOutputArrayKey(next)
+                        const trimmed = next.trim()
+                        persistAgentNodeData({
+                          outputArrayKey:
+                            trimmed && trimmed !== SCALABLE_AGENT_OUTPUT_KEY
+                              ? trimmed
+                              : undefined,
+                        })
+                      }}
+                    />
+                    {outputArrayKeyError ? (
+                      <span className="hint hint--error">{outputArrayKeyError}</span>
+                    ) : (
+                      <span className="hint">
+                        Name the array downstream nodes read (e.g.{" "}
+                        <code>arquitecturas</code>, <code>summaries</code>). Default:{" "}
+                        <code>{SCALABLE_AGENT_OUTPUT_KEY}</code>.
+                      </span>
+                    )}
+                  </label>
+                  <label className="field">
+                    <span>Input array</span>
+                    <select
+                      className="field-control field-control--mono"
+                      value={arrayExpressionInList ? inputArrayExpression : "__custom__"}
+                      onChange={(e) => {
+                        const next = e.target.value
+                        if (next === "__custom__") {
+                          setInputArrayExpression("")
+                          persistAgentNodeData({
+                            inputArrayExpression: undefined,
+                            inputArrayPath: undefined,
+                          })
+                          return
+                        }
+                        setInputArrayExpression(next)
+                        persistAgentNodeData({
+                          inputArrayExpression: next || undefined,
+                          inputArrayPath: undefined,
+                        })
+                      }}
+                    >
+                      <option value="">Select from context…</option>
+                      {!arrayExpressionInList && inputArrayExpression ? (
+                        <option value="__custom__">{inputArrayExpression}</option>
+                      ) : null}
+                      {upstreamArrayOptions.length > 0 ? (
+                        <optgroup label="Upstream">
+                          {upstreamArrayOptions.map((option) => (
+                            <option key={option.id} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
+                      {runInputArrayOptions.length > 0 ? (
+                        <optgroup label="Run input">
+                          {runInputArrayOptions.map((option) => (
+                            <option key={option.id} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
+                      <option value="__custom__">Custom expression…</option>
+                    </select>
+                  </label>
+                  {!arrayExpressionInList || inputArrayExpression === "" ? (
+                    <label className="field">
+                      <span>Custom expression</span>
+                      <input
+                        className="field-control field-control--mono"
+                        type="text"
+                        placeholder="items or upstream.splitter.items"
+                        value={inputArrayExpression}
+                        onChange={(e) => {
+                          const next = e.target.value
+                          setInputArrayExpression(next)
+                          persistAgentNodeData({
+                            inputArrayExpression: next.trim() || undefined,
+                            inputArrayPath: undefined,
+                          })
+                        }}
+                      />
+                      <span className="hint">
+                        Same tokens as If/else context — pick an upstream output field that is an
+                        array.
+                      </span>
+                    </label>
+                  ) : null}
+                  {upstreamArrayOptions.length === 0 && runInputArrayOptions.length === 0 ? (
+                    <p className="hint">
+                      Wire an upstream node first; its output schema fields will appear here.
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+            </section>
+
             <InstructionsEditor
               variables={contextVariables}
               globalVariables={globalVariables}
@@ -540,6 +808,20 @@ export default function SwarmWorkerPanel({
               value={systemPrompt}
               onChange={setSystemPrompt}
             />
+
+            {canonicalProvider === "openai_direct" && agentTools.length === 0 ? (
+              <p className="instructions-tools-hint">
+                Platform tools (Research papers, web scrape, …) are enabled under{" "}
+                <button
+                  type="button"
+                  className="instructions-tools-link"
+                  onClick={() => setConfigTab("tools")}
+                >
+                  Tools and model
+                </button>
+                , not in Instructions. Mentioning a tool here does not connect it.
+              </p>
+            ) : null}
 
             <PromptMessagesEditor
               messages={promptMessages}
@@ -575,7 +857,18 @@ export default function SwarmWorkerPanel({
                 {canonicalProvider !== "openai_direct" ? (
                   <p className="hint">Enable JSON mode under Advanced for non-OpenAI providers.</p>
                 ) : null}
+                {scalable ? (
+                  <p className="hint">
+                    Each shard returns one object from this schema. The node output is{" "}
+                    <code>{`outputs: [ { your fields }, … ]`}</code>.
+                  </p>
+                ) : null}
               </div>
+            ) : scalable ? (
+              <p className="hint">
+                Each shard returns <code>{`{ result: "…" }`}</code>; downstream receives{" "}
+                <code>{`outputs: [ … ]`}</code>.
+              </p>
             ) : null}
           </>
         ) : (
@@ -594,7 +887,9 @@ export default function SwarmWorkerPanel({
               <AgentToolsSection
                 openaiTools={openaiTools}
                 agentTools={agentTools}
+                savedAgentTools={savedAgentTools}
                 catalog={agentToolsCatalog}
+                toolsConfigDirty={toolsConfigDirty}
                 onOpenaiToolsChange={setOpenaiTools}
                 onAgentToolsChange={setAgentTools}
                 swarmTools={swarmTools}
@@ -674,6 +969,9 @@ export default function SwarmWorkerPanel({
       </div>
 
       <footer className="foot">
+        {toolsConfigDirty ? (
+          <p className="foot-hint">Unsaved tool changes — click Save before running the swarm.</p>
+        ) : null}
         <button type="button" className="save" disabled={saving} onClick={() => void handleSave()}>
           {saving ? "Saving…" : "Save changes"}
         </button>
@@ -841,6 +1139,26 @@ export default function SwarmWorkerPanel({
           padding-right: 1.75rem;
           cursor: pointer;
         }
+        .instructions-tools-hint {
+          margin: 0;
+          padding: 0.55rem 0.65rem;
+          font-size: 0.6875rem;
+          line-height: 1.45;
+          color: var(--app-text-muted);
+          border: 1px dashed var(--app-border);
+          border-radius: var(--app-radius);
+          background: var(--app-surface-muted);
+        }
+        .instructions-tools-link {
+          padding: 0;
+          border: none;
+          background: none;
+          color: var(--app-text);
+          font: inherit;
+          font-weight: 600;
+          text-decoration: underline;
+          cursor: pointer;
+        }
         .structured-block {
           display: flex;
           flex-direction: column;
@@ -961,6 +1279,27 @@ export default function SwarmWorkerPanel({
           border-color: var(--app-border-strong);
           box-shadow: var(--app-btn-focus-ring);
         }
+        .scale-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          padding: 0.75rem;
+          border: 1px solid var(--app-border);
+          border-radius: 0.5rem;
+          background: color-mix(in srgb, var(--app-text) 2%, var(--app-surface));
+        }
+        .scale-section .hint {
+          margin: 0;
+          font-size: 0.6875rem;
+          line-height: 1.45;
+          color: var(--app-text-faint);
+        }
+        .scale-section .hint--error {
+          color: var(--app-danger, #c0392b);
+        }
+        .scale-section code {
+          font-size: 0.625rem;
+        }
         .check {
           display: flex;
           align-items: center;
@@ -973,6 +1312,12 @@ export default function SwarmWorkerPanel({
           padding: 0.75rem 1rem 1rem;
           border-top: 1px solid var(--app-border);
           flex-shrink: 0;
+        }
+        .foot-hint {
+          margin: 0 0 0.5rem;
+          font-size: 0.6875rem;
+          line-height: 1.4;
+          color: var(--app-text-muted);
         }
         .save {
           width: 100%;

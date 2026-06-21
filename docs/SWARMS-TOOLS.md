@@ -23,7 +23,7 @@ Requires worker **`model.provider: openai_direct`** (official OpenAI API). Grok 
 | UI | PATCH field | Source |
 |----|-------------|--------|
 | Web search toggle | `openaiTools.webSearch` | Hosted OpenAI Responses tool |
-| Platform tools (`webpage_scrape`, `run_swarm`) | `agentTools: string[]` | `GET /inference/setup` → `agentTools.catalog` |
+| Platform tools (Firecrawl scrape/search/research, `run_swarm`) | `agentTools: string[]` | `GET /inference/setup` → `agentTools.catalog` |
 | Sub-swarm picker | `swarmTools: string[]` | Workspace `referencedSwarms` (MongoDB swarm ids) |
 
 Save path: `PATCH /agent-workers/:id` via `SwarmWorkerPanel` → `onSave`.
@@ -100,11 +100,11 @@ Do not confuse with **`{{runInput.toolsAvailable}}`** — that token is the plat
 }
 ```
 
-**Child swarm + scrape:**
+**Child swarm + Firecrawl tools:**
 
 ```json
 {
-  "agentTools": ["webpage_scrape"],
+  "agentTools": ["webpage_scrape", "web_search", "research_search_papers"],
   "swarmTools": ["6a2b994f609bebf67927c242"]
 }
 ```
@@ -129,7 +129,7 @@ Ensure child swarms have `promptMessages` (e.g. `{ "role": "user", "content": "{
 - Provider/model pickers
 - `agentTools.catalog` (id, name, description, `configured`)
 
-Tools with `configured: false` (e.g. `webpage_scrape` without Cloudflare env) may still be added; the run will return a tool error until env is set.
+All known tool ids from `src/lib/agent-tools.ts` appear in the **+** menu (`mergeAgentToolsCatalog`). Tools with `configured: false` (e.g. Firecrawl tools without `FIRECRAWL_API_KEY`) show a **Not configured** badge but can still be added to the worker draft.
 
 ---
 

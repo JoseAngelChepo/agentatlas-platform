@@ -13,7 +13,7 @@ import {
 
 export type HistoricalSwarmLog = {
   logId: string
-  kind: "start" | "scraper" | "swarm" | "swarm_tool" | "ifelse" | "while" | "user_approval" | "end" | "worker"
+  kind: "start" | "scraper" | "research_papers" | "swarm" | "swarm_tool" | "ifelse" | "while" | "user_approval" | "end" | "worker"
   name: string
   step: number
   status: "running" | "done"
@@ -49,6 +49,19 @@ function formatScraperLogBody(output: Record<string, unknown>): string {
   if (typeof output.content === "string" && output.content.trim()) {
     const preview = output.content.slice(0, 600)
     lines.push(`content:\n${preview}${output.content.length > 600 ? "\n…" : ""}`)
+  }
+  return lines.length > 0 ? lines.join("\n") : formatJson(output)
+}
+
+function formatResearchPapersLogBody(output: Record<string, unknown>): string {
+  const lines: string[] = []
+  if (typeof output.branchHandle === "string") lines.push(`branch: ${output.branchHandle}`)
+  if (typeof output.status === "string") lines.push(`status: ${output.status}`)
+  if (typeof output.query === "string") lines.push(`query: ${output.query}`)
+  if (typeof output.paperCount === "number") lines.push(`paperCount: ${output.paperCount}`)
+  if (typeof output.error === "string" && output.error.trim()) lines.push(`error: ${output.error}`)
+  if (Array.isArray(output.papers) && output.papers.length > 0) {
+    lines.push(`papers:\n${formatJson(output.papers.slice(0, 5))}`)
   }
   return lines.length > 0 ? lines.join("\n") : formatJson(output)
 }
@@ -140,6 +153,7 @@ export function buildHistoricalSwarmLogs(
   })
 
   const seenScrapers = new Set<string>()
+  const seenResearchPapers = new Set<string>()
   for (const agentRun of agentRuns) {
     const upstream = agentRun.input?.upstream
     if (!Array.isArray(upstream)) continue
@@ -175,6 +189,37 @@ export function buildHistoricalSwarmLogs(
         meta:
           typeof scraper.status === "string"
             ? `branch · ${String(scraper.branchHandle ?? "—")}`
+            : undefined,
+      })
+    }
+
+    for (const item of upstream) {
+      if (!item || typeof item !== "object") continue
+      const research = item as Record<string, unknown>
+      if (research.kind !== "research_papers") continue
+
+      const key = String(research.query ?? logs.length)
+      if (seenResearchPapers.has(key)) continue
+      seenResearchPapers.add(key)
+
+      const metaEntry = upstreamMeta.find((entry) => entry.kind === "research_papers")
+      const nodeName =
+        typeof metaEntry?.workerName === "string" && metaEntry.workerName.trim()
+          ? metaEntry.workerName.trim()
+          : "Research papers"
+
+      step += 1
+      logs.push({
+        logId: `research_papers-${key}`,
+        kind: "research_papers",
+        name: nodeName,
+        step,
+        status: "done",
+        latencyMs: typeof research.latencyMs === "number" ? research.latencyMs : undefined,
+        streamText: formatResearchPapersLogBody(research),
+        meta:
+          typeof research.status === "string"
+            ? `branch · ${String(research.branchHandle ?? "—")}`
             : undefined,
       })
     }
@@ -291,7 +336,18 @@ function formatWorkerLogForCopy(log: HistoricalSwarmLog): string {
   }
 
   if (log.contextInput) {
-    lines.push("", "### Context", formatJson(log.contextInput))
+    const context = { ...log.contextInput }
+    if (
+      Array.isArray(context.connectedAgentTools) &&
+      context.connectedAgentTools.length === 0
+    ) {
+      lines.push(
+        "",
+        "### Tools",
+        "No platform tools were connected for this run (`connectedAgentTools: []`). Enable tools under Configure agent → Tools and model → Save changes — Instructions text alone does not wire tools.",
+      )
+    }
+    lines.push("", "### Context", formatJson(context))
   }
 
   return lines.join("\n")

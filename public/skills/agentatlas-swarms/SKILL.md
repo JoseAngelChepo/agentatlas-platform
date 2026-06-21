@@ -382,7 +382,7 @@ Configured in **Configure agent** panel (`AgentToolsSection`, `SwarmToolsSection
 | UI | PATCH field | Notes |
 |----|-------------|-------|
 | Web search | `openaiTools.webSearch` | Hosted OpenAI Responses tool |
-| Platform tools | `agentTools: string[]` | e.g. `webpage_scrape`, `run_swarm` |
+| Platform tools | `agentTools: string[]` | e.g. `webpage_scrape`, `web_search`, `research_*`, `run_swarm` |
 | Sub-swarms | `swarmTools: string[]` | Exposes `swarm_<objectId>` per child |
 
 **Prefer `swarmTools` over generic `run_swarm`** when child swarms are known. Generic `run_swarm` is omitted at runtime when `swarmTools` is non-empty.

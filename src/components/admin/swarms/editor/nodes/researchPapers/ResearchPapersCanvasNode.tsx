@@ -1,19 +1,19 @@
 "use client"
 
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react"
-import { TbThumbUp } from "react-icons/tb"
+import { TbBook2 } from "react-icons/tb"
 import NodeWrapper from "../shared/NodeWrapper"
 import { CANVAS_NODE_CIRCLE_RADIUS } from "../shared/canvasNodeShapeStyles"
 import NodeRunVisual, { nodeRunSquareModifier, useNodeRunState } from "../shared/NodeRunVisual"
 import { NODE_RUN_SQUARE_STYLES } from "../shared/nodeRunSquareStyles"
 import { useSwarmEditor } from "../../SwarmEditorContext"
 import {
-  USER_APPROVAL_APPROVE_HANDLE,
-  USER_APPROVAL_REJECT_HANDLE,
-  type UserApprovalNodeData,
+  RESEARCH_PAPERS_FAILED_HANDLE,
+  RESEARCH_PAPERS_SUCCESS_HANDLE,
+  type ResearchPapersNodeData,
 } from "./data"
 
-export type UserApprovalNodeType = Node<UserApprovalNodeData, "user_approval">
+export type ResearchPapersNodeType = Node<ResearchPapersNodeData, "research_papers">
 
 function sourceHandleTop(index: number, total: number): string {
   if (total <= 1) return "50%"
@@ -21,8 +21,7 @@ function sourceHandleTop(index: number, total: number): string {
   return `${step * (index + 1)}%`
 }
 
-/** User approval gate — approve / reject branches (same layout as scraper). */
-export default function UserApprovalCanvasNode({ id, selected }: NodeProps<UserApprovalNodeType>) {
+export default function ResearchPapersCanvasNode({ id, selected }: NodeProps<ResearchPapersNodeType>) {
   const { onSelectNode, onOpenNode } = useSwarmEditor()
   const runState = useNodeRunState(id)
   const outputCount = 2
@@ -35,49 +34,49 @@ export default function UserApprovalCanvasNode({ id, selected }: NodeProps<UserA
   return (
     <NodeWrapper
       id={id}
-      type="user approval"
+      type="research_papers"
       onConfigure={openConfig}
-      configureAriaLabel="Configure user approval node"
+      configureAriaLabel="Configure research papers node"
     >
-      <div className={`approval-node${selected ? " approval-node--on" : ""}`}>
+      <div className={`research-papers-node${selected ? " research-papers-node--on" : ""}`}>
         <Handle
           type="target"
           position={Position.Left}
-          className="approval-handle approval-handle--target"
+          className="research-papers-handle research-papers-handle--target"
         />
         <div className={`square${nodeRunSquareModifier(runState)}`}>
-          <NodeRunVisual nodeId={id} icon={<TbThumbUp size={28} aria-hidden />} />
+          <NodeRunVisual nodeId={id} icon={<TbBook2 size={28} aria-hidden />} />
         </div>
         <Handle
           type="source"
           position={Position.Right}
-          id={USER_APPROVAL_APPROVE_HANDLE}
-          className="approval-handle approval-handle--source"
+          id={RESEARCH_PAPERS_SUCCESS_HANDLE}
+          className="research-papers-handle research-papers-handle--source"
           style={{ top: sourceHandleTop(0, outputCount) }}
         />
         <span
-          className="branch-label branch-label--approve"
+          className="branch-label branch-label--success"
           style={{ top: sourceHandleTop(0, outputCount) }}
         >
-          Approve
+          Success
         </span>
         <Handle
           type="source"
           position={Position.Right}
-          id={USER_APPROVAL_REJECT_HANDLE}
-          className="approval-handle approval-handle--source"
+          id={RESEARCH_PAPERS_FAILED_HANDLE}
+          className="research-papers-handle research-papers-handle--source"
           style={{ top: sourceHandleTop(1, outputCount) }}
         />
         <span
-          className="branch-label branch-label--reject"
+          className="branch-label branch-label--failed"
           style={{ top: sourceHandleTop(1, outputCount) }}
         >
-          Reject
+          Failed
         </span>
       </div>
 
       <style jsx>{`
-        .approval-node {
+        .research-papers-node {
           position: relative;
           width: 4rem;
         }
@@ -86,40 +85,40 @@ export default function UserApprovalCanvasNode({ id, selected }: NodeProps<UserA
           align-items: center;
           justify-content: center;
           aspect-ratio: 1;
-          border: 1px solid #c2410c;
+          border: 1px solid var(--app-border);
           border-radius: ${CANVAS_NODE_CIRCLE_RADIUS};
-          background: #ea580c;
-          color: #fff7ed;
+          background: var(--app-text);
+          color: var(--app-bg);
           transition:
             border-color 0.15s ease,
             box-shadow 0.15s ease,
             background 0.15s ease,
             color 0.15s ease;
         }
-        .approval-node:hover .square {
-          border-color: #9a3412;
+        .research-papers-node:hover .square {
+          border-color: var(--app-border-strong);
         }
-        .approval-node--on .square {
-          border-color: #ea580c;
-          box-shadow: 0 0 0 2px color-mix(in srgb, #ea580c 28%, transparent);
+        .research-papers-node--on .square {
+          border-color: var(--app-text);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-text) 18%, transparent);
           background: var(--app-surface);
-          color: #ea580c;
+          color: var(--app-text);
         }
-        :global(.approval-handle) {
+        :global(.research-papers-handle) {
           width: 7px;
           height: 7px;
           background: var(--app-border-strong);
           border: 1.5px solid var(--app-surface);
         }
-        :global(.approval-handle--target) {
+        :global(.research-papers-handle--target) {
           left: -5px;
         }
-        :global(.approval-handle--source) {
+        :global(.research-papers-handle--source) {
           right: -5px;
         }
-        .approval-node:hover :global(.approval-handle),
-        .approval-node--on :global(.approval-handle) {
-          background: #ea580c;
+        .research-papers-node:hover :global(.research-papers-handle),
+        .research-papers-node--on :global(.research-papers-handle) {
+          background: var(--app-text);
         }
         .branch-label {
           position: absolute;
@@ -128,42 +127,18 @@ export default function UserApprovalCanvasNode({ id, selected }: NodeProps<UserA
           font-size: 0.5rem;
           font-weight: 600;
           letter-spacing: 0.03em;
+          color: var(--app-text-faint);
           white-space: nowrap;
           pointer-events: none;
           user-select: none;
         }
-        .branch-label--approve {
+        .branch-label--success {
           color: var(--app-text-muted);
         }
-        .branch-label--reject {
+        .branch-label--failed {
           color: var(--app-text-faint);
         }
-        .square--run-running,
-        .square--run-waiting {
-          animation: node-run-pulse-approval 1.2s ease-in-out infinite;
-        }
-        .square--run-done {
-          box-shadow: 0 0 0 2px color-mix(in srgb, #16a34a 35%, transparent);
-        }
-        .square--run-skipped {
-          opacity: 0.42;
-          filter: grayscale(0.35);
-        }
-        @keyframes node-run-pulse-approval {
-          0%,
-          100% {
-            box-shadow: 0 0 0 0 color-mix(in srgb, #ea580c 18%, transparent);
-          }
-          50% {
-            box-shadow: 0 0 0 4px color-mix(in srgb, #ea580c 10%, transparent);
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .square--run-running,
-          .square--run-waiting {
-            animation: none;
-          }
-        }
+        ${NODE_RUN_SQUARE_STYLES}
       `}</style>
     </NodeWrapper>
   )

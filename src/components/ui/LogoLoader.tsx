@@ -28,8 +28,8 @@ const TILE_FROM_CLASS = [
 type Props = {
   size?: number
   className?: string
-  /** Filled mark, outline mark, or inner grid only (best for tight inline spots). */
-  variant?: "filled" | "outline" | "tiles"
+  /** Filled mark, outline mark, inner grid, or orbital circles (agent nodes). */
+  variant?: "filled" | "outline" | "tiles" | "circles"
   /** Softer, lighter tiles — good on dark node squares. */
   tone?: "default" | "soft"
   label?: string
@@ -71,6 +71,71 @@ export default function LogoLoader({
   const frameStrokeOpacity = soft ? (filled ? 0.34 : 0.58) : filled ? 0.22 : 0.35
   const tileFillOpacity = soft ? 0.78 : filled ? 0.38 : 0.45
   const accent = soft ? ACCENT_SOFT : ACCENT
+
+  if (variant === "circles") {
+    const ringColor = soft ? ACCENT_SOFT : "currentColor"
+    const dotColor = soft ? "#ffffff" : accent
+    const ringOpacity = soft ? 0.55 : 0.35
+    const dotBaseOpacity = soft ? 0.45 : 0.55
+
+    return (
+      <span className={cn(styles.root, className)} role="status" aria-label={label}>
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 32 32"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden
+        >
+          <circle
+            cx="16"
+            cy="16"
+            r="11"
+            stroke={ringColor}
+            strokeOpacity={ringOpacity}
+            strokeWidth="2.75"
+            fill="none"
+          />
+          <circle
+            cx="16"
+            cy="16"
+            r="11"
+            stroke={ringColor}
+            strokeWidth="3"
+            strokeLinecap="round"
+            fill="none"
+            strokeDasharray="16 54"
+            className={styles.ringArc}
+          />
+          <circle
+            cx="16"
+            cy="12.25"
+            r="2.35"
+            fill={dotColor}
+            fillOpacity={dotBaseOpacity}
+            className={styles.innerDot0}
+          />
+          <circle
+            cx="12.15"
+            cy="18.1"
+            r="2.35"
+            fill={dotColor}
+            fillOpacity={dotBaseOpacity}
+            className={styles.innerDot1}
+          />
+          <circle
+            cx="19.85"
+            cy="18.1"
+            r="2.35"
+            fill={dotColor}
+            fillOpacity={dotBaseOpacity}
+            className={styles.innerDot2}
+          />
+        </svg>
+      </span>
+    )
+  }
 
   return (
     <span className={cn(styles.root, className)} role="status" aria-label={label}>

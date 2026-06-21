@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react"
 import AgentRobotIcon from "../../icons/AgentRobotIcon"
 import NodeWrapper from "../shared/NodeWrapper"
+import { CANVAS_NODE_CIRCLE_RADIUS } from "../shared/canvasNodeShapeStyles"
 import NodeRunVisual, { nodeRunSquareModifier, useNodeRunState } from "../shared/NodeRunVisual"
+import ScalableAgentVisual from "./ScalableAgentVisual"
 import { NODE_RUN_SQUARE_STYLES } from "../shared/nodeRunSquareStyles"
 import { useSwarmEditor } from "../../SwarmEditorContext"
 
@@ -12,6 +14,14 @@ export type AgentNodeData = {
   workerId: string
   label?: string
   tag?: "entry" | "exit" | "entry-exit" | null
+  /** When true, upstream array fans out into parallel worker runs. */
+  scalable?: boolean
+  /** Wrapper key for scalable output array (defaults to `outputs`). */
+  outputArrayKey?: string
+  /** Expression for the fan-out array — same tokens as If/else context (e.g. `items`, `runInput.tasks`). */
+  inputArrayExpression?: string
+  /** @deprecated Prefer `inputArrayExpression`. */
+  inputArrayPath?: string
 }
 
 export type AgentNodeType = Node<AgentNodeData, "agent">
@@ -21,10 +31,15 @@ export type AgentNodeType = Node<AgentNodeData, "agent">
  * (API-backed), keyed by canvas node id — not worker id.
  */
 export default function AgentCanvasNode({ id, data, selected }: NodeProps<AgentNodeType>) {
-  const { workerById, onSelectNode, onOpenNode, onUpdateAgentNodeLabel } = useSwarmEditor()
+  const { workerById, onSelectNode, onOpenNode, onUpdateAgentNodeLabel, scaleVisuals } =
+    useSwarmEditor()
   const runState = useNodeRunState(id)
+  const scaleVisual = scaleVisuals[id]
   const worker = workerById[data.workerId]
   const displayLabel = worker?.name?.trim() || "Agent"
+  const showScaleFanOut = Boolean(
+    scaleVisual && (scaleVisual.count > 0 || scaleVisual.phase === "collapsing"),
+  )
 
   const [editingLabel, setEditingLabel] = useState(false)
   const [draftLabel, setDraftLabel] = useState(displayLabel)
@@ -62,18 +77,33 @@ export default function AgentCanvasNode({ id, data, selected }: NodeProps<AgentN
         type="agent"
         onConfigure={openConfig}
         configureAriaLabel="Configure agent"
+        bare={showScaleFanOut}
       >
         <div
-          className={`agent-node agent-robot-blink-host${selected ? " agent-node--on" : ""}`}
+          className={`agent-node agent-robot-blink-host${selected ? " agent-node--on" : ""}${showScaleFanOut ? " agent-node--scaled" : ""}`}
         >
           <Handle type="target" position={Position.Left} className="agent-handle agent-handle--target" />
-          <div className={`square${nodeRunSquareModifier(runState)}`}>
-            <NodeRunVisual
-              nodeId={id}
-              loaderSize="large"
-              icon={<AgentRobotIcon size={35} blinkOnHover={runState === "idle"} />}
+          {showScaleFanOut && scaleVisual ? (
+            <ScalableAgentVisual
+              count={scaleVisual.count}
+              phase={scaleVisual.phase}
+              shardStates={scaleVisual.shardStates}
+              selected={selected}
             />
-          </div>
+          ) : (
+            <div className={`square${nodeRunSquareModifier(runState)}`}>
+              <NodeRunVisual
+                nodeId={id}
+                loaderSize="large"
+                icon={<AgentRobotIcon size={35} blinkOnHover={runState === "idle"} />}
+              />
+            </div>
+          )}
+          {data.scalable && !showScaleFanOut ? (
+            <span className="scale-badge" title="Scalable agent — fans out over upstream arrays">
+              ×n
+            </span>
+          ) : null}
           <Handle type="source" position={Position.Right} className="agent-handle agent-handle--source" />
         </div>
       </NodeWrapper>
@@ -120,6 +150,7 @@ export default function AgentCanvasNode({ id, data, selected }: NodeProps<AgentN
           display: inline-flex;
           flex-direction: column;
           align-items: center;
+          overflow: visible;
         }
         .agent-label-float {
           position: absolute;
@@ -134,6 +165,26 @@ export default function AgentCanvasNode({ id, data, selected }: NodeProps<AgentN
           position: relative;
           width: 4rem;
         }
+        .agent-node--scaled {
+          width: 4.5rem;
+          height: 4.5rem;
+          overflow: visible;
+        }
+        .scale-badge {
+          position: absolute;
+          top: -0.35rem;
+          right: -0.35rem;
+          padding: 0.1rem 0.28rem;
+          border-radius: 999px;
+          border: 1px solid var(--app-border);
+          background: var(--app-surface);
+          font-size: 0.4375rem;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          color: var(--app-text-muted);
+          pointer-events: none;
+          line-height: 1.2;
+        }
         .square {
           --agent-robot-eye-fill: var(--app-text);
           display: flex;
@@ -141,7 +192,7 @@ export default function AgentCanvasNode({ id, data, selected }: NodeProps<AgentN
           justify-content: center;
           aspect-ratio: 1;
           border: 1px solid var(--app-border);
-          border-radius: calc(var(--app-radius) + 2px);
+          border-radius: ${CANVAS_NODE_CIRCLE_RADIUS};
           background: var(--app-text);
           color: var(--app-bg);
           transition:

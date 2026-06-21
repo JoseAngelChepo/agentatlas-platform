@@ -4,6 +4,7 @@ import { Handle, Position, type Node, type NodeProps } from "@xyflow/react"
 import { TbFlag } from "react-icons/tb"
 import NodeWrapper from "../shared/NodeWrapper"
 import NodeRunVisual, { nodeRunSquareModifier, useNodeRunState } from "../shared/NodeRunVisual"
+import { CANVAS_NODE_CIRCLE_RADIUS } from "../shared/canvasNodeShapeStyles"
 import { NODE_RUN_SQUARE_STYLES } from "../shared/nodeRunSquareStyles"
 import { useSwarmEditor } from "../../SwarmEditorContext"
 import type { EndNodeData } from "./data"
@@ -49,7 +50,7 @@ export default function EndCanvasNode({ id, selected }: NodeProps<EndNodeType>) 
           justify-content: center;
           aspect-ratio: 1;
           border: 1px solid var(--app-border);
-          border-radius: calc(var(--app-radius) + 2px);
+          border-radius: ${CANVAS_NODE_CIRCLE_RADIUS};
           background: var(--app-text);
           color: var(--app-bg);
           transition:

@@ -138,11 +138,6 @@ export default function SwarmEditorSidebar({
         })}
       </ul>
 
-      <p className="hint">
-        Drag or click to place nodes. Use Start for workflow inputs; agents for LLM steps. Exit is
-        inferred from connections.
-      </p>
-
       <style jsx>{`
         .sidebar {
           --agent-tile-size: 3.25rem;
@@ -267,16 +262,6 @@ export default function SwarmEditorSidebar({
         }
         .agent-card:hover .agent-name {
           color: var(--app-text);
-        }
-        .hint {
-          width: 100%;
-          margin-top: auto;
-          font-size: 0.5625rem;
-          color: var(--app-text-faint);
-          line-height: 1.45;
-          flex-shrink: 0;
-          text-align: center;
-          padding: 0 0.125rem;
         }
         :global(.spin) {
           animation: spin 0.9s linear infinite;

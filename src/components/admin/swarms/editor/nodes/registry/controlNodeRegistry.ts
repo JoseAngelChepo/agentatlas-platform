@@ -2,6 +2,7 @@ import { endNodeDefinition } from "../end/definition"
 import { ifElseNodeDefinition } from "../ifelse/definition"
 import { whileNodeDefinition } from "../while/definition"
 import { scraperNodeDefinition } from "../scraper/definition"
+import { researchPapersNodeDefinition } from "../researchPapers/definition"
 import { swarmNodeDefinition } from "../swarm/definition"
 import { startNodeDefinition } from "../start/definition"
 import { userApprovalNodeDefinition } from "../userApproval/definition"
@@ -13,6 +14,7 @@ export const CONTROL_NODE_DEFINITIONS = [
   ifElseNodeDefinition,
   whileNodeDefinition,
   scraperNodeDefinition,
+  researchPapersNodeDefinition,
   swarmNodeDefinition,
   userApprovalNodeDefinition,
   endNodeDefinition,

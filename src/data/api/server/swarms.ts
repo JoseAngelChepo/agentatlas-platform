@@ -84,7 +84,7 @@ export type SwarmNodePosition = {
 export type SwarmGraphNode = {
   /** Stable React Flow node id; defaults to `workerId` when omitted on writes. */
   id?: string
-  kind?: "worker" | "ifelse" | "while" | "scraper" | "swarm" | "user_approval" | "end"
+  kind?: "worker" | "ifelse" | "while" | "scraper" | "research_papers" | "swarm" | "user_approval" | "end"
   workerId?: string | null
   type?: string
   position: SwarmNodePosition
@@ -323,6 +323,8 @@ export type InferenceRequestPayload = {
   shared: Record<string, unknown>
   runInput: Record<string, unknown>
   promptMessages?: AgentWorkerPromptMessage[]
+  /** Wired at inference from `worker.agentTools` (empty = no platform tools connected). */
+  connectedAgentTools?: string[]
 }
 
 export type InferenceTrace = {
@@ -340,6 +342,7 @@ export type WorkerInferenceMessage = {
 export type SwarmGraphNodeKind =
   | "start"
   | "scraper"
+  | "research_papers"
   | "swarm"
   | "ifelse"
   | "while"
@@ -398,12 +401,37 @@ export type SwarmSseEvent =
       fromNodeId?: string
     }
   | {
+      type: "scale_expand"
+      nodeId: string
+      count: number
+      wave: number
+    }
+  | {
+      type: "scale_shard_start"
+      nodeId: string
+      shardIndex: number
+      wave: number
+    }
+  | {
+      type: "scale_shard_done"
+      nodeId: string
+      shardIndex: number
+      wave: number
+      latencyMs: number
+    }
+  | {
+      type: "scale_collapse"
+      nodeId: string
+      wave: number
+    }
+  | {
       type: "worker_start"
       nodeId: string
       workerId: string
       workerName: string
       step: number
       wave: number
+      shardIndex?: number
     }
   | {
       type: "worker_meta"
@@ -413,6 +441,7 @@ export type SwarmSseEvent =
       model: string
       baseURL: string
       wave: number
+      shardIndex?: number
     }
   | {
       type: "delta"
@@ -420,6 +449,7 @@ export type SwarmSseEvent =
       workerId: string
       delta: string
       wave: number
+      shardIndex?: number
     }
   | {
       type: "worker_done"
@@ -430,6 +460,7 @@ export type SwarmSseEvent =
       latencyMs: number
       step: number
       wave: number
+      shardIndex?: number
       inference?: InferenceTrace
       inferenceRequest?: InferenceRequestPayload
       messages?: WorkerInferenceMessage[]

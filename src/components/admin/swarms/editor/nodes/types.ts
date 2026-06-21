@@ -3,6 +3,7 @@ import type { EndNodeType } from "./end"
 import type { IfElseNodeType } from "./ifelse"
 import type { WhileNodeType } from "./while"
 import type { ScraperNodeType } from "./scraper"
+import type { ResearchPapersNodeType } from "./researchPapers"
 import type { SwarmNodeType } from "./swarm"
 import type { StartNodeType } from "./start"
 import type { UserApprovalNodeType } from "./userApproval"
@@ -14,6 +15,7 @@ export type EditorNode =
   | IfElseNodeType
   | WhileNodeType
   | ScraperNodeType
+  | ResearchPapersNodeType
   | SwarmNodeType
   | UserApprovalNodeType
   | EndNodeType
@@ -24,6 +26,6 @@ export function isAgentNode(node: EditorNode): node is AgentNodeType {
 
 export function isControlFlowNode(
   node: EditorNode,
-): node is StartNodeType | IfElseNodeType | WhileNodeType | ScraperNodeType | SwarmNodeType | UserApprovalNodeType | EndNodeType {
+): node is StartNodeType | IfElseNodeType | WhileNodeType | ScraperNodeType | ResearchPapersNodeType | SwarmNodeType | UserApprovalNodeType | EndNodeType {
   return node.type !== "agent"
 }

@@ -8,6 +8,7 @@ import {
   isStartGraphNode,
   parseStartNodeData,
 } from "@/lib/start-node"
+import { serializedAgentNodeData } from "@/lib/swarm-node-ref"
 
 function isIfElseGraphNode(node: SwarmGraphNode): boolean {
   return node.kind === "ifelse" || node.type === "ifelse"
@@ -19,6 +20,10 @@ function isWhileGraphNode(node: SwarmGraphNode): boolean {
 
 function isScraperGraphNode(node: SwarmGraphNode): boolean {
   return node.kind === "scraper" || node.type === "scraper"
+}
+
+function isResearchPapersGraphNode(node: SwarmGraphNode): boolean {
+  return node.kind === "research_papers" || node.type === "research_papers"
 }
 
 function isSwarmGraphNode(node: SwarmGraphNode): boolean {
@@ -162,6 +167,7 @@ function isBranchGraphNode(node: SwarmGraphNode): boolean {
     k === "ifelse" ||
     k === "while" ||
     k === "scraper" ||
+    k === "research_papers" ||
     k === "swarm" ||
     k === "user_approval" ||
     k === "userApproval"
@@ -381,13 +387,26 @@ export function canvasSnapshotToApiPayload(
       continue
     }
     if (!node.workerId) continue
+    const agentData = node.data as Record<string, unknown> | undefined
     apiNodes.push({
       id: node.id ?? node.workerId,
       kind: "worker",
       workerId: node.workerId,
       type: "worker",
       position: node.position,
-      data: node.data?.label ? { label: node.data.label } : {},
+      data: serializedAgentNodeData({
+        ref: typeof agentData?.ref === "string" ? agentData.ref : undefined,
+        label: typeof agentData?.label === "string" ? agentData.label : undefined,
+        scalable: agentData?.scalable === true,
+        outputArrayKey:
+          typeof agentData?.outputArrayKey === "string" ? agentData.outputArrayKey : undefined,
+        inputArrayExpression:
+          typeof agentData?.inputArrayExpression === "string"
+            ? agentData.inputArrayExpression
+            : undefined,
+        inputArrayPath:
+          typeof agentData?.inputArrayPath === "string" ? agentData.inputArrayPath : undefined,
+      }),
     })
   }
 

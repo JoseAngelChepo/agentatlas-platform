@@ -186,7 +186,7 @@ export default function SwarmInputFieldBuilder({
                   {upstreamOptions.length > 0 ? (
                     <optgroup label="Upstream">
                       {upstreamOptions.map((option) => (
-                        <option key={option.value} value={`upstream:${option.value}`}>
+                        <option key={option.id} value={`upstream:${option.value}`}>
                           {option.label}
                         </option>
                       ))}
@@ -196,7 +196,7 @@ export default function SwarmInputFieldBuilder({
                     <optgroup label="Run input">
                       {runInputOptions.map((option) => (
                         <option
-                          key={option.value}
+                          key={option.id}
                           value={`runInput:${option.value.replace(/^runInput\./, "")}`}
                         >
                           {option.label}

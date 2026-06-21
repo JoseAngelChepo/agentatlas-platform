@@ -172,7 +172,7 @@ export default function IfElseConfigForm({
                     {upstreamOptions.length > 0 ? (
                       <optgroup label="Upstream">
                         {upstreamOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
+                          <option key={option.id} value={option.value}>
                             {option.label}
                           </option>
                         ))}
@@ -181,7 +181,7 @@ export default function IfElseConfigForm({
                     {runInputOptions.length > 0 ? (
                       <optgroup label="Run input">
                         {runInputOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
+                          <option key={option.id} value={option.value}>
                             {option.label}
                           </option>
                         ))}
