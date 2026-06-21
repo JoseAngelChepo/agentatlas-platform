@@ -182,14 +182,37 @@
 }
 
 .copyDone {
-  color: var(--app-success);
-  background: var(--app-success-bg);
-  border-color: rgba(22, 163, 74, 0.22);
+  color: var(--app-live);
+  background: var(--app-surface);
+  border-color: var(--app-border);
+  box-shadow: var(--app-shadow-sm);
+  transition: none;
+}
+
+.copy.copyDone:hover {
+  color: var(--app-live);
+  background: var(--app-surface-elevated);
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow-md);
+}
+
+.copy.copyDone:active {
+  color: var(--app-live);
+  transform: none;
+}
+
+.copyDone .copyIcon {
+  width: 1.0625rem;
+  height: 1.0625rem;
 }
 
 .copy:focus-visible {
   outline: none;
   box-shadow: var(--app-btn-focus-ring);
+}
+
+.copy.copyDone:focus-visible {
+  box-shadow: var(--app-shadow-sm);
 }
 
 .copyIcon {
@@ -242,7 +265,7 @@
   }
 
   .shell,
-  .copy {
+  .copy:not(.copyDone) {
     transition: none;
   }
 }
