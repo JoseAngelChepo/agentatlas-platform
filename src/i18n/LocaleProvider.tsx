@@ -13,7 +13,8 @@ import en from "@/messages/en.json"
 import es from "@/messages/es.json"
 import {
   type Locale,
-  resolveInitialLocale,
+  detectLocaleFromLocation,
+  readLocaleFromCookie,
   writeLocaleCookie,
 } from "@/i18n/locale"
 
@@ -29,16 +30,19 @@ const bundles = { en, es } as const satisfies Record<Locale, Messages>
 
 const LocaleContext = createContext<LocaleContextValue | null>(null)
 
-export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("en")
-  const [hydrated, setHydrated] = useState(false)
+type LocaleProviderProps = {
+  children: ReactNode
+  initialLocale: Locale
+}
+
+export function LocaleProvider({ children, initialLocale }: LocaleProviderProps) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale)
 
   useEffect(() => {
-    const initial = resolveInitialLocale()
-    setLocaleState(initial)
-    writeLocaleCookie(initial)
-    document.documentElement.lang = initial
-    setHydrated(true)
+    const resolved = readLocaleFromCookie() ?? detectLocaleFromLocation()
+    writeLocaleCookie(resolved)
+    document.documentElement.lang = resolved
+    setLocaleState((current) => (current === resolved ? current : resolved))
   }, [])
 
   const setLocale = useCallback((next: Locale) => {
@@ -55,16 +59,6 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     }),
     [locale, setLocale],
   )
-
-  if (!hydrated) {
-    return (
-      <LocaleContext.Provider
-        value={{ locale: "en", setLocale, messages: bundles.en }}
-      >
-        {children}
-      </LocaleContext.Provider>
-    )
-  }
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
 }

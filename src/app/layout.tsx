@@ -1,7 +1,10 @@
 import type { Metadata } from "next"
+import { cookies, headers } from "next/headers"
 import { Providers } from "@/app/providers"
+import { StyledJsxRegistry } from "@/app/styled-jsx-registry"
 import { NEXT_PUBLIC_APP_URL } from "@/config/env"
 import { appFont } from "@/config/fonts"
+import { LOCALE_COOKIE, resolveServerLocale } from "@/i18n/locale"
 import "./globals.css"
 
 const siteName = "agentatlas"
@@ -37,15 +40,24 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const cookieStore = await cookies()
+  const headerStore = await headers()
+  const initialLocale = resolveServerLocale(
+    cookieStore.get(LOCALE_COOKIE)?.value,
+    headerStore.get("accept-language"),
+  )
+
   return (
-    <html lang="en">
+    <html lang={initialLocale}>
       <body className={appFont.variable}>
-        <Providers>{children}</Providers>
+        <StyledJsxRegistry>
+          <Providers initialLocale={initialLocale}>{children}</Providers>
+        </StyledJsxRegistry>
       </body>
     </html>
   )

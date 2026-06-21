@@ -34,12 +34,35 @@ const SPANISH_TIMEZONES = new Set([
   "Atlantic/Canary",
 ])
 
+export function parseLocaleCookieValue(value: string | undefined | null): Locale | null {
+  const v = value?.trim()
+  if (v === "es" || v === "en") return v
+  return null
+}
+
 export function readLocaleFromCookie(): Locale | null {
   if (typeof document === "undefined") return null
   const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]*)`))
-  const v = m?.[1]?.trim()
-  if (v === "es" || v === "en") return v
-  return null
+  return parseLocaleCookieValue(m?.[1])
+}
+
+/** Server render: cookie wins, then Accept-Language, then default. */
+export function resolveServerLocale(
+  cookieValue: string | undefined,
+  acceptLanguage: string | null | undefined,
+): Locale {
+  const fromCookie = parseLocaleCookieValue(cookieValue)
+  if (fromCookie) return fromCookie
+
+  if (acceptLanguage) {
+    for (const part of acceptLanguage.split(",")) {
+      const tag = part.split(";")[0]?.trim().toLowerCase()
+      if (!tag) continue
+      if (tag === "es" || tag.startsWith("es-")) return "es"
+    }
+  }
+
+  return DEFAULT_LOCALE
 }
 
 export function writeLocaleCookie(locale: Locale): void {

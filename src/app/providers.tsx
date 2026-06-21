@@ -2,13 +2,19 @@
 
 import { ServicesProvider } from "@/data/providers/ServicesProvider"
 import { LocaleProvider } from "@/i18n/LocaleProvider"
+import type { Locale } from "@/i18n/locale"
 import { Slide, ToastContainer } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "./toastify-theme.css"
 
-export function Providers({ children }: { children: React.ReactNode }) {
+type ProvidersProps = {
+  children: React.ReactNode
+  initialLocale: Locale
+}
+
+export function Providers({ children, initialLocale }: ProvidersProps) {
   return (
-    <LocaleProvider>
+    <LocaleProvider initialLocale={initialLocale}>
     <ServicesProvider>
       {children}
       <ToastContainer
