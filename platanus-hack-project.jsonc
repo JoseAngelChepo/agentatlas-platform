@@ -1,0 +1,13 @@
+{
+  // Your project's name, as it will appear on the voting page.
+  "project-name": "agentatlas",
+
+  // Short one-line summary of your project (in Spanish).
+  "project-oneliner-spanish": "Laboratorio open source para diseñar, probar y comparar arquitecturas multi-agente.",
+
+  // Brief description of your project (in Spanish).
+  "project-description-spanish": "Editor visual de swarms con test runs en vivo, catálogo de más de 10 patrones multi-agente y skill doc público para que coding agents aprendan a diseñar y ejecutar enjambres. Frontend en Vercel, API en Render, inferencia cloud u Ollama local.",
+
+  // Public URL where your project is deployed and running.
+  "deploy-url": "https://agentatlas.network/"
+}

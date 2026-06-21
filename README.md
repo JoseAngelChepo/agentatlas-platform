@@ -1,12 +1,16 @@
-# agentatlas-platform
+# agentatlas
 
-Next.js frontend for **agentatlas** — create, test, and compare multi-agent swarm architectures.
+**Laboratorio open source para diseñar, probar y comparar arquitecturas multi-agente.**
 
-Public landing, auth, swarm editor, test panel, and admin (users + swarms).
+- **Live:** https://agentatlas.network/
+- **API:** https://agentatlas-services.onrender.com/api/v1
+- **Skill doc:** https://agentatlas.network/skill.md
 
-Expects the sibling API **`agentatlas-services`** at `http://localhost:3001/api/v1`.
+Track: AI Security · **Equipo 19** — Jose Angel Lopez, Luisa Fernanda Guerra, Gerson Estrada Lopez
 
-**License:** MIT — see [LICENSE](./LICENSE). Backend: [agentatlas-services](https://github.com/JoseAngelChepo/agentatlas-services) (MIT).
+Next.js frontend + NestJS backend. Editor de grafos, test runs con trazas SSE, catálogo de patrones y skill doc público para coding agents.
+
+Ver [PROJECT.md](./PROJECT.md) para descripción completa. Backend: [agentatlas-services](https://github.com/JoseAngelChepo/agentatlas-services).
 
 ## Develop
 
@@ -16,9 +20,3 @@ npm run dev
 ```
 
 Open `http://localhost:3000`. Swarms live at `/dashboard/swarms`.
-
-## Docs
-
-- `docs/SWARMS-EDITOR.md` — editor UI
-- `docs/SWARMS-TOOLS.md` — worker tools panel
-- Backend contracts: `../agentatlas-services/docs/SWARMS-WORKSPACE.md`
