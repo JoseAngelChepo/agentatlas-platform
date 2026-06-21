@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Providers } from "@/app/providers"
 import { NEXT_PUBLIC_APP_URL } from "@/config/env"
-import { appFont } from "@/config/fonts"
+import { appFont, logoFont } from "@/config/fonts"
 import "./globals.css"
 
 const siteName = "agentatlas"
@@ -16,9 +16,7 @@ export const metadata: Metadata = {
     template: "%s · agentatlas",
   },
   description: defaultDescription,
-  icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-  },
+
   openGraph: {
     type: "website",
     siteName,
@@ -39,7 +37,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={appFont.variable}>
+      <body className={`${appFont.variable} ${logoFont.variable}`}>
         <Providers>{children}</Providers>
       </body>
     </html>

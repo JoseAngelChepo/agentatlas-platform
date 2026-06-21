@@ -30,6 +30,7 @@
 }
 
 .wordmark {
+  font-family: var(--font-logo), var(--app-font);
   display: inline-flex;
   align-items: baseline;
   letter-spacing: var(--app-tracking-tight);
@@ -39,12 +40,12 @@
 
 .prefix {
   color: var(--app-text-muted);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .suffix {
   color: var(--app-text);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Sizes */
