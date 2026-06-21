@@ -3,96 +3,25 @@
 }
 
 :root {
-  /* Surfaces — warm neutrals, flat */
-  --app-bg: #fbfbfa;
-  --app-surface: #ffffff;
-  --app-surface-muted: #f4f4f2;
-  --app-surface-elevated: #ffffff;
-
-  /* Borders — hairline hierarchy */
-  --app-border: #eaeaea;
-  --app-border-strong: #d4d4d4;
-  --app-border-subtle: #f0f0ee;
-
-  /* Text */
-  --app-text: #0a0a0a;
-  --app-text-muted: #525866;
-  --app-text-faint: #8a8f99;
-
-  /* Brand actions — near-black primary, accent for focus/links only */
-  --app-primary: #0a0a0a;
-  --app-primary-hover: #1a1a1a;
-  --app-primary-active: #000000;
-  --app-primary-soft: #f4f4f2;
-  --app-accent: #1463ff;
-  --app-accent-hover: #0f52d9;
-  --app-accent-soft: #eef3ff;
-  --app-accent-muted: rgba(20, 99, 255, 0.12);
-
-  /* Status */
-  --app-success: #16a34a;
-  --app-success-bg: #f0fdf4;
-  --app-live: #3f9a6d;
-  --app-live-soft: #e6f1ec;
-  --app-danger: #dc2626;
-  --app-danger-bg: #fef2f2;
-  --app-danger-border: #fecaca;
-
-  /* Shape */
-  --app-radius: 8px;
-  --app-radius-lg: 12px;
-  --app-radius-pill: 999px;
-
-  /* Elevation — restrained, no heavy drop shadows */
-  --app-shadow-sm: 0 1px 2px rgba(10, 10, 10, 0.04);
-  --app-shadow-md: 0 4px 12px -2px rgba(10, 10, 10, 0.06), 0 2px 4px -2px rgba(10, 10, 10, 0.04);
-  --app-shadow-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-
-  /* Typography — Red Hat Display (see src/config/fonts.ts, docs/FONTS.md)
-     Keep it literal so it doesn't depend on CSS variable scoping. */
-  --app-font: "Red Hat Display", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --app-tracking-tight: -0.03em;
-  --app-tracking-normal: 0;
-  --app-tracking-wide: 0.04em;
-
-  /* Buttons — shared across LandingButton, ui/Button, auth */
-  --app-btn-radius: var(--app-radius);
-  --app-btn-font-weight: 500;
-  --app-btn-letter-spacing: 0.01em;
-  --app-btn-transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease,
-    box-shadow 0.18s ease, transform 0.12s ease;
-  --app-btn-primary-fg: #ffffff;
-  --app-btn-primary-bg: var(--app-primary);
-  --app-btn-primary-border: var(--app-primary);
-  --app-btn-primary-bg-hover: var(--app-primary-hover);
-  --app-btn-primary-bg-active: var(--app-primary-active);
-  --app-btn-primary-shadow: var(--app-shadow-inset-highlight), var(--app-shadow-sm);
-  --app-btn-primary-shadow-hover: var(--app-shadow-inset-highlight), 0 2px 8px rgba(10, 10, 10, 0.1);
-  --app-btn-secondary-bg: var(--app-surface);
-  --app-btn-secondary-border: var(--app-border-strong);
-  --app-btn-secondary-bg-hover: var(--app-surface-muted);
-  --app-btn-secondary-border-hover: var(--app-text);
-  --app-btn-ghost-bg-hover: var(--app-surface);
-  --app-btn-ghost-border-hover: var(--app-border);
-  --app-btn-focus-ring: 0 0 0 2px var(--app-bg), 0 0 0 4px var(--app-accent);
-}
-
-.dark {
   color-scheme: dark;
 
+  /* Surfaces */
   --app-bg: #000000;
   --app-surface: #141413;
   --app-surface-muted: #1a1a18;
   --app-surface-elevated: #1e1e1c;
 
+  /* Borders */
   --app-border: #2a2a28;
   --app-border-strong: #3a3a37;
   --app-border-subtle: #1f1f1d;
 
+  /* Text */
   --app-text: #f4f4f2;
   --app-text-muted: #a0a4ad;
   --app-text-faint: #6b7080;
 
+  /* Brand actions */
   --app-primary: #f4f4f2;
   --app-primary-hover: #ffffff;
   --app-primary-active: #e8e8e6;
@@ -102,6 +31,7 @@
   --app-accent-soft: #1a2440;
   --app-accent-muted: rgba(61, 127, 255, 0.18);
 
+  /* Status */
   --app-success: #22c55e;
   --app-success-bg: #0f2918;
   --app-live: #4ade80;
@@ -110,10 +40,28 @@
   --app-danger-bg: #2a1212;
   --app-danger-border: #5c2020;
 
+  /* Shape */
+  --app-radius: 8px;
+  --app-radius-lg: 12px;
+  --app-radius-pill: 999px;
+
+  /* Elevation */
   --app-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
   --app-shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.42), 0 2px 4px -2px rgba(0, 0, 0, 0.28);
   --app-shadow-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
+  /* Typography */
+  --app-font: "Red Hat Display", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --app-tracking-tight: -0.03em;
+  --app-tracking-normal: 0;
+  --app-tracking-wide: 0.04em;
+
+  /* Buttons */
+  --app-btn-radius: var(--app-radius);
+  --app-btn-font-weight: 500;
+  --app-btn-letter-spacing: 0.01em;
+  --app-btn-transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease,
+    box-shadow 0.18s ease, transform 0.12s ease;
   --app-btn-primary-fg: #0a0a0a;
   --app-btn-primary-bg: #f4f4f2;
   --app-btn-primary-border: #f4f4f2;
@@ -146,17 +94,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  transition:
-    background-color 0.22s ease,
-    color 0.22s ease;
 }
 
 ::selection {
-  background: var(--app-text);
-  color: var(--app-bg);
-}
-
-.dark ::selection {
   background: var(--app-accent);
   color: #ffffff;
 }

@@ -1,8 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { useTheme } from "next-themes"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import * as THREE from "three"
 import styles from "./dotted-surface.module.css"
 
@@ -18,8 +17,6 @@ type DottedSurfaceProps = Omit<React.ComponentProps<"div">, "ref"> & {
 }
 
 export function DottedSurface({ className, layout = "contained", ...props }: DottedSurfaceProps) {
-  const { theme } = useTheme()
-  const [mounted, setMounted] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<{
     scene: THREE.Scene
@@ -30,12 +27,8 @@ export function DottedSurface({ className, layout = "contained", ...props }: Dot
   } | null>(null)
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
     const container = containerRef.current
-    if (!container || !mounted || !theme) return
+    if (!container) return
 
     const scene = new THREE.Scene()
     scene.fog = new THREE.Fog(0xffffff, 2000, 10000)
@@ -55,7 +48,6 @@ export function DottedSurface({ className, layout = "contained", ...props }: Dot
     const geometry = new THREE.BufferGeometry()
     const positions: number[] = []
     const colors: number[] = []
-    const isDark = theme === "dark"
 
     for (let ix = 0; ix < AMOUNTX; ix++) {
       for (let iy = 0; iy < AMOUNTY; iy++) {
@@ -63,11 +55,7 @@ export function DottedSurface({ className, layout = "contained", ...props }: Dot
         const z = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2
 
         positions.push(x, 0, z)
-        if (isDark) {
-          colors.push(200, 200, 200)
-        } else {
-          colors.push(0, 0, 0)
-        }
+        colors.push(200, 200, 200)
       }
     }
 
@@ -166,7 +154,7 @@ export function DottedSurface({ className, layout = "contained", ...props }: Dot
 
       sceneRef.current = null
     }
-  }, [theme, mounted, layout])
+  }, [layout])
 
   return (
     <div

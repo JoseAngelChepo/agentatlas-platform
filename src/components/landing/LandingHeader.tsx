@@ -3,7 +3,6 @@
 import { landingContent } from "@/content/landing"
 import { useServices } from "@/data/providers/ServicesProvider"
 import AppLogo from "@/components/ui/AppLogo"
-import ThemeToggle from "@/components/ui/ThemeToggle"
 import LandingButton from "./LandingButton"
 import LandingContainer from "./LandingContainer"
 
@@ -26,7 +25,6 @@ export default function LandingHeader() {
           </nav>
         ) : null}
         <div className="actions">
-          <ThemeToggle />
           {stateService && isLoggedIn ? (
             <LandingButton href="/dashboard" variant="primary">
               {header.dashboardLabel}

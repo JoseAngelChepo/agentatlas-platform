@@ -1,5 +1,5 @@
 /**
- * Toastify overrides — aligned with `globals.css` tokens (light + dark via class on html).
+ * Toastify overrides — aligned with dark `globals.css` tokens.
  */
 
 .app-toastify-host.Toastify__toast-container {
@@ -28,10 +28,6 @@
 }
 
 .app-toastify-host .Toastify__toast--success {
-  border-color: #bbf7d0;
-}
-
-.dark .app-toastify-host .Toastify__toast--success {
   border-color: #14532d;
 }
 

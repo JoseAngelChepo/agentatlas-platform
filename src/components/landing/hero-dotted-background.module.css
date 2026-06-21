@@ -25,18 +25,10 @@
   transform: translateX(-50%);
   background: radial-gradient(
     ellipse at center,
-    color-mix(in srgb, var(--app-text) 10%, transparent) 0%,
-    transparent 50%
-  );
-  filter: blur(30px);
-}
-
-:global(.dark) .glow::after {
-  background: radial-gradient(
-    ellipse at center,
     rgba(255, 255, 255, 0.08) 0%,
     transparent 50%
   );
+  filter: blur(30px);
 }
 
 .fadeBottom {
