@@ -13,8 +13,8 @@
       "dashboardLabel": "Panel"
     },
     "hero": {
-      "badge": "Documentación para agentes",
-      "title": "Documentacion de arquitectura para tus agentes",
+      "badge": "Documentación para multi-agentes",
+      "title": "Enséñale a tus agentes a construir swarms y sub-agentes.",
       "lede": "Una URL de skill con topologías de grafo, workers, sub-swarms, herramientas y test runs — para que los agentes de código sepan diseñar y ejecutar sistemas multi-agente.",
       "skill": {
         "hint": "Copia el comando de configuración en tu agente.",
