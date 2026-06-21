@@ -13,7 +13,7 @@
       "dashboardLabel": "Dashboard"
     },
     "hero": {
-      "badge": "Agent documentation",
+      "badge": "Documentation for multi-agents",
       "title": "Teach your agents how to build swarms and sub-agents.",
       "lede": "One skill URL with graph topologies, workers, nested swarms, tools, and test runs — so coding agents know how to design and run multi-agent systems.",
       "skill": {

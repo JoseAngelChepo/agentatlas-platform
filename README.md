@@ -6,6 +6,8 @@ Public landing, auth, swarm editor, test panel, and admin (users + swarms).
 
 Expects the sibling API **`agentatlas-services`** at `http://localhost:3001/api/v1`.
 
+**License:** MIT — see [LICENSE](./LICENSE). Backend: [agentatlas-services](https://github.com/JoseAngelChepo/agentatlas-services) (MIT).
+
 ## Develop
 
 ```bash
