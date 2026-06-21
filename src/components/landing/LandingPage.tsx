@@ -5,8 +5,9 @@ import ArchitecturesSection from "@/components/landing/ArchitecturesSection"
 import HeroSection from "@/components/landing/sections/HeroSection"
 import LandingFooter from "@/components/landing/sections/LandingFooter"
 
-/** Pulls the catalog up over the hero mesh while keeping document height for scroll. */
-const ARCH_STACK_LIFT = "calc(100dvh - 3.75rem - 12rem)"
+/** Pull overlap into hero mesh; pad slightly less than pull to raise catalog content. */
+const ARCH_STACK_PULL = "calc(100dvh - 3.75rem - 12rem)"
+const ARCH_STACK_PAD = "calc(100dvh - 3.75rem - 17rem)"
 
 export default function LandingPage() {
   return (
@@ -20,7 +21,8 @@ export default function LandingPage() {
             className="archStack"
             style={
               {
-                "--arch-stack-lift": ARCH_STACK_LIFT,
+                "--arch-stack-pull": ARCH_STACK_PULL,
+                "--arch-stack-pad": ARCH_STACK_PAD,
               } as React.CSSProperties
             }
           >
@@ -56,8 +58,8 @@ export default function LandingPage() {
         .archStack {
           position: relative;
           z-index: 3;
-          margin-top: calc(-1 * var(--arch-stack-lift));
-          padding-top: var(--arch-stack-lift);
+          margin-top: calc(-1 * var(--arch-stack-pull));
+          padding-top: var(--arch-stack-pad);
         }
       `}</style>
     </div>
